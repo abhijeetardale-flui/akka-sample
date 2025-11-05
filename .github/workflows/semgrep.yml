@@ -33,8 +33,19 @@ jobs:
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: semgrep-results.sarif
+      
+      - name: Note about SARIF upload
+        if: always()
+        run: |
+          echo "⚠️ NOTE: If SARIF upload failed, this is likely because:"
+          echo "  1. Repository is private without GitHub Advanced Security enabled"
+          echo "  2. Check Settings → Code security and analysis → GitHub Advanced Security"
+          echo ""
+          echo "✅ Semgrep reports are still available in the Artifacts section!"
+          echo "   Download 'semgrep-results' artifact to view JSON report"
       
       - name: Generate readable report
         run: |

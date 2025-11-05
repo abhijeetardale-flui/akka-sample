@@ -22,6 +22,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
   security-events: read
   actions: read
 
@@ -115,20 +116,30 @@ jobs:
       - name: Create issue for manual review
         if: steps.detect-vulns.outputs.has_vulns == 'true'
         uses: actions/github-script@v7
+        continue-on-error: true
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const plan = fs.readFileSync('dependency-update-plan.md', 'utf8');
             
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🤖 Security Agent: Dependency Updates Recommended',
-              body: `${plan}\n\n---\n\n**Automated by Security Fix Agent**\nTriggered by: ${context.eventName}\nWorkflow: ${context.workflow}\n\nPlease review and apply these updates.`,
-              labels: ['security', 'dependencies', 'automated-agent']
-            });
+            try {
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🤖 Security Agent: Dependency Updates Recommended',
+                body: `${plan}\n\n---\n\n**Automated by Security Fix Agent**\nTriggered by: ${context.eventName}\nWorkflow: ${context.workflow}\n\nPlease review and apply these updates.`,
+                labels: ['security', 'dependencies', 'automated-agent']
+              });
+              console.log(`✅ Created issue #${issue.data.number}`);
+            } catch (error) {
+              console.log('⚠️ Could not create issue. Printing recommendations here instead:');
+              console.log(plan);
+              core.warning('Issue creation failed. Check Actions summary for recommendations.');
+            }
       
       - name: Summary
+        if: always()
         run: |
           echo "## 🤖 Auto-Fix Agent Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -137,7 +148,17 @@ jobs:
           echo "- ✅ Generated update recommendations" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Created issue for manual review (if needed)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add recommendations to summary if file exists
+          if [ -f "dependency-update-plan.md" ]; then
+            echo "### 📋 Recommendations:" >> $GITHUB_STEP_SUMMARY
+            cat dependency-update-plan.md >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "**Note**: Dependabot will create PRs for dependency updates automatically." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Check the Issues tab for detailed recommendations" >> $GITHUB_STEP_SUMMARY
 
   code-quality-fixes:
     name: Auto-Fix Code Quality Issues

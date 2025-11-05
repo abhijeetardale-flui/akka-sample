@@ -1,0 +1,126 @@
+name: PMD Code Quality Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  pmd:
+    name: PMD Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+      
+      - name: Download PMD
+        run: |
+          PMD_VERSION=7.0.0
+          wget https://github.com/pmd/pmd/releases/download/pmd_releases%2F${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip
+          unzip pmd-dist-${PMD_VERSION}-bin.zip
+          mv pmd-bin-${PMD_VERSION} pmd
+      
+      - name: Create PMD ruleset
+        run: |
+          cat > pmd-ruleset.xml << 'EOF'
+          <?xml version="1.0"?>
+          <ruleset name="Custom Rules"
+              xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 
+                                  https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+            
+            <description>Custom PMD rules for Akka samples</description>
+            
+            <!-- Best Practices -->
+            <rule ref="category/java/bestpractices.xml"/>
+            
+            <!-- Code Style -->
+            <rule ref="category/java/codestyle.xml">
+              <exclude name="AtLeastOneConstructor"/>
+              <exclude name="OnlyOneReturn"/>
+              <exclude name="ShortVariable"/>
+              <exclude name="LongVariable"/>
+            </rule>
+            
+            <!-- Design -->
+            <rule ref="category/java/design.xml">
+              <exclude name="LawOfDemeter"/>
+              <exclude name="LoosePackageCoupling"/>
+            </rule>
+            
+            <!-- Error Prone -->
+            <rule ref="category/java/errorprone.xml"/>
+            
+            <!-- Multithreading -->
+            <rule ref="category/java/multithreading.xml"/>
+            
+            <!-- Performance -->
+            <rule ref="category/java/performance.xml"/>
+            
+            <!-- Security -->
+            <rule ref="category/java/security.xml"/>
+          </ruleset>
+          EOF
+      
+      - name: Run PMD Analysis
+        run: |
+          mkdir -p pmd-reports
+          
+          # Run PMD on Java source files
+          ./pmd/bin/pmd check \
+            -d . \
+            -R pmd-ruleset.xml \
+            -f sarif \
+            -r pmd-reports/pmd-report.sarif \
+            --use-version java-11 \
+            --fail-on-violation false \
+            --no-cache \
+            || true
+          
+          # Also generate HTML report for easier viewing
+          ./pmd/bin/pmd check \
+            -d . \
+            -R pmd-ruleset.xml \
+            -f html \
+            -r pmd-reports/pmd-report.html \
+            --use-version java-11 \
+            --fail-on-violation false \
+            --no-cache \
+            || true
+      
+      - name: Upload PMD SARIF results to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: pmd-reports/pmd-report.sarif
+      
+      - name: Upload PMD reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pmd-reports
+          path: pmd-reports/
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## PMD Analysis Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "PMD has analyzed the codebase for:" >> $GITHUB_STEP_SUMMARY
+          echo "- Code smells" >> $GITHUB_STEP_SUMMARY
+          echo "- Best practices violations" >> $GITHUB_STEP_SUMMARY
+          echo "- Security issues" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance problems" >> $GITHUB_STEP_SUMMARY
+          echo "- Design flaws" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the artifacts and Security tab for detailed results." >> $GITHUB_STEP_SUMMARY
+

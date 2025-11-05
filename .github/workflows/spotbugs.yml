@@ -1,0 +1,78 @@
+name: SpotBugs Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  spotbugs:
+    name: SpotBugs Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+      
+      - name: Cache SBT
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/**') }}
+          restore-keys: |
+            ${{ runner.os }}-sbt-
+      
+      - name: Compile projects
+        run: |
+          # Compile all Scala projects
+          for dir in akka-sample-*/; do
+            if [ -f "$dir/build.sbt" ]; then
+              echo "Building $dir..."
+              cd "$dir"
+              sbt compile || echo "Build failed for $dir"
+              cd ..
+            fi
+          done
+      
+      - name: Run SpotBugs
+        run: |
+          # Create reports directory
+          mkdir -p spotbugs-reports
+          
+          # Run SpotBugs on each project
+          for dir in akka-sample-*/; do
+            if [ -f "$dir/build.sbt" ]; then
+              echo "Running SpotBugs on $dir..."
+              cd "$dir"
+              sbt spotbugs || echo "SpotBugs failed for $dir"
+              
+              # Copy reports if they exist
+              if [ -d "target/scala-*/spotbugs" ]; then
+                cp -r target/scala-*/spotbugs ../spotbugs-reports/${dir%/} || true
+              fi
+              cd ..
+            fi
+          done
+      
+      - name: Upload SpotBugs results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spotbugs-reports
+          path: spotbugs-reports/
+      
+      - name: Check for high priority bugs
+        run: |
+          echo "SpotBugs analysis completed. Check artifacts for detailed reports."
+          # You can add logic here to fail the build on high priority bugs
+

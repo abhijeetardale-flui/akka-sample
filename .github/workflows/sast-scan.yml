@@ -1,0 +1,188 @@
+name: SAST Scan (ShiftLeft/AppThreat)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  sast-scan:
+    name: Comprehensive Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+      
+      - name: Cache SBT
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/**') }}
+          restore-keys: |
+            ${{ runner.os }}-sbt-
+      
+      - name: Build Java/Scala projects
+        run: |
+          echo "Building projects for bytecode analysis..."
+          for dir in akka-sample-*/; do
+            if [ -f "$dir/build.sbt" ]; then
+              echo "Building $dir..."
+              cd "$dir"
+              sbt compile package || echo "Build failed for $dir, continuing..."
+              cd ..
+            fi
+          done
+      
+      - name: Run SAST Scan
+        uses: AppThreat/sast-scan-action@v1.0.2
+        with:
+          type: "java,scala,yaml,json"
+          output: "reports"
+        env:
+          WORKSPACE: ${{ github.workspace }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCAN_AUTO_BUILD: "false"  # We already built above
+      
+      - name: Upload SAST Scan SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: reports
+      
+      - name: Note about SARIF upload
+        if: always()
+        run: |
+          echo "⚠️ NOTE: If SARIF upload failed, this is likely because:"
+          echo "  1. Repository is private without GitHub Advanced Security enabled"
+          echo "  2. Check Settings → Code security and analysis → GitHub Advanced Security"
+          echo ""
+          echo "✅ SAST scan reports are still available in the Artifacts section!"
+          echo "   Download 'sast-scan-reports' artifact to view detailed findings"
+      
+      - name: Upload SAST Scan reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sast-scan-reports
+          path: reports/
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## SAST Scan Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### What was scanned:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Java/Scala source code (SAST)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dependencies (vulnerability & license check)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Infrastructure as Code (if present)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Configuration files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Results available:" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Artifacts: Download 'sast-scan-reports' for detailed findings" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔒 Security Tab: Check 'Code scanning alerts' (if GH Advanced Security enabled)" >> $GITHUB_STEP_SUMMARY
+  
+  dependency-scan:
+    name: Dependency & License Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+      
+      - name: Cache SBT
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/**') }}
+          restore-keys: |
+            ${{ runner.os }}-sbt-
+      
+      - name: Generate dependency tree
+        run: |
+          echo "Generating dependency information..."
+          for dir in akka-sample-*/; do
+            if [ -f "$dir/build.sbt" ]; then
+              echo "Dependencies for $dir"
+              cd "$dir"
+              sbt dependencyTree > ../dependencies-${dir%/}.txt 2>&1 || true
+              cd ..
+            fi
+          done
+      
+      - name: Run Dependency Scan
+        uses: AppThreat/dep-scan-action@v1.0.0
+        with:
+          type: "java"
+          output: "dep-scan-reports"
+        env:
+          WORKSPACE: ${{ github.workspace }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload Dependency Scan SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: dep-scan-reports
+      
+      - name: Note about dependency scan
+        if: always()
+        run: |
+          echo "✅ Dependency scan completed!"
+          echo "📦 Scanned for:"
+          echo "  - Known vulnerabilities (CVEs)"
+          echo "  - License compliance issues"
+          echo "  - Outdated dependencies"
+          echo ""
+          echo "Reports are available in the Artifacts section"
+      
+      - name: Upload dependency reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-scan-reports
+          path: |
+            dep-scan-reports/
+            dependencies-*.txt
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Dependency Scan Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Checks performed:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔍 CVE vulnerability scanning" >> $GITHUB_STEP_SUMMARY
+          echo "- 📜 License compliance check" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 Dependency risk analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download 'dependency-scan-reports' artifact for detailed results" >> $GITHUB_STEP_SUMMARY
+

@@ -9,15 +9,15 @@ on:
     # Run daily at 00:00 UTC
     - cron: '0 0 * * *'
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   semgrep:
     name: Semgrep Scan
     runs-on: ubuntu-latest
-    
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
     
     container:
       image: returntocorp/semgrep

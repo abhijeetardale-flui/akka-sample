@@ -18,11 +18,11 @@ This repository generates **detailed security reports** similar to Veracode, wit
 - ✅ Professional formatting
 
 ### Multiple Report Formats
-1. **📊 comprehensive-report.html** - Main Veracode-style report (beautified)
-2. **📊 trivy-report.html** - Detailed Trivy vulnerability report
-3. **📊 owasp/dependency-check-report.html** - OWASP dependency analysis
-4. **📄 comprehensive-report.json** - Machine-readable JSON
-5. **📄 SARIF files** - GitHub Security tab integration
+1. **📊 comprehensive-report.html** - Main Veracode-style report (beautified) ⭐
+2. **📊 owasp/dependency-check-report.html** - OWASP dependency analysis
+3. **📄 comprehensive-report.json** - Machine-readable JSON summary
+4. **📄 SARIF files** - GitHub Security tab integration
+5. **📄 trivy-table.txt** - Trivy scan results (text format)
 6. **📄 SpotBugs HTML reports** - Java code quality issues
 
 ---
@@ -106,12 +106,12 @@ Reports are automatically generated:
 ### Step 3: View Reports
 **Main Report (Veracode-style):**
 - Open: `html/comprehensive-report.html` in your browser
-- This is your primary security report!
+- This is your primary security report! ⭐
 
 **Additional Reports:**
-- `html/trivy-report.html` - Detailed vulnerability scanning
 - `owasp/dependency-check-report.html` - Full OWASP analysis
 - `comprehensive-report.json` - JSON summary for automation
+- `raw/trivy-table.txt` - Trivy vulnerability scan (text format)
 
 ---
 
@@ -215,8 +215,7 @@ Each vulnerability includes:
 ```
 security-reports/
 ├── html/
-│   ├── comprehensive-report.html ⭐ MAIN REPORT
-│   └── trivy-report.html
+│   └── comprehensive-report.html ⭐ MAIN VERACODE-STYLE REPORT
 ├── owasp/
 │   ├── dependency-check-report.html
 │   ├── dependency-check-report.json
@@ -224,6 +223,7 @@ security-reports/
 ├── raw/
 │   ├── trivy-results.json
 │   ├── trivy-results.sarif
+│   ├── trivy-table.txt
 │   ├── semgrep-results.json
 │   ├── semgrep-results.sarif
 │   └── spotbugs-*.html

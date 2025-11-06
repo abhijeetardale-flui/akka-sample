@@ -84,16 +84,27 @@ jobs:
           output: 'security-reports/raw/trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
       
-      - name: Trivy HTML Report
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'template'
-          template: '@contrib/html.tpl'
-          output: 'security-reports/html/trivy-report.html'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+      - name: Trivy Table Report (for reference)
         continue-on-error: true
+        run: |
+          echo "🔍 Generating Trivy table report..."
+          
+          # Install trivy if not already available
+          if ! command -v trivy &> /dev/null; then
+            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+            echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+            sudo apt-get update
+            sudo apt-get install trivy -y
+          fi
+          
+          # Generate table report
+          trivy fs . \
+            --severity CRITICAL,HIGH,MEDIUM,LOW \
+            --format table \
+            --output security-reports/raw/trivy-table.txt \
+            || true
+          
+          echo "✅ Trivy table report generated"
       
       # ============================================
       # 3. Semgrep SAST
@@ -512,10 +523,10 @@ jobs:
           echo "3. Download **security-reports.zip**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📄 Available Reports:" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **comprehensive-report.html** - Main Veracode-style report" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 **trivy-report.html** - Trivy vulnerability details" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 **comprehensive-report.html** - Main Veracode-style report ⭐" >> $GITHUB_STEP_SUMMARY
           echo "- 📊 **owasp/dependency-check-report.html** - OWASP full report" >> $GITHUB_STEP_SUMMARY
           echo "- 📄 **comprehensive-report.json** - Machine-readable summary" >> $GITHUB_STEP_SUMMARY
+          echo "- 📄 **raw/trivy-table.txt** - Trivy scan results" >> $GITHUB_STEP_SUMMARY
           echo "- 📄 **SARIF files** - GitHub Security tab integration" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY

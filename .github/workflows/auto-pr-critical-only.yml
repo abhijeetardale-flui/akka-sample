@@ -298,44 +298,35 @@ jobs:
           with open('pr-fixes/critical-fixes.json', 'r') as f:
               fixes = json.load(f)
           
-          # Generate PR body
-          pr_body = f"""# 🔴 URGENT: {len(issues)} CRITICAL Security Vulnerabilities
-
-## ⚠️ IMMEDIATE ACTION REQUIRED
-
-This PR addresses **{len(issues)} CRITICAL severity vulnerabilities** (CVSS 9.0+) that pose **immediate security risks** to the application.
-
----
-
-## 📊 Summary
-
-| Metric | Count |
-|--------|-------|
-| 🔴 **CRITICAL Vulnerabilities** | **{len(issues)}** |
-| ✅ **Auto-fixed** | {len(fixes)} |
-| ⚠️ **Manual review required** | {len(issues) - len(fixes)} |
-
----
-
-## 🔴 CRITICAL Vulnerabilities Detected
-
-"""
+          # Generate PR body - using variables to avoid YAML parsing issues
+          total = len(issues)
+          fixed = len(fixes)
+          manual = total - fixed
+          
+          pr_body = f"# 🔴 URGENT: {total} CRITICAL Security Vulnerabilities\n\n"
+          pr_body += "## ⚠️ IMMEDIATE ACTION REQUIRED\n\n"
+          pr_body += f"This PR addresses **{total} CRITICAL severity vulnerabilities** (CVSS 9.0+) "
+          pr_body += "that pose **immediate security risks** to the application.\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## 📊 Summary\n\n"
+          pr_body += "| Metric | Count |\n"
+          pr_body += "|--------|-------|\n"
+          pr_body += f"| 🔴 **CRITICAL Vulnerabilities** | **{total}** |\n"
+          pr_body += f"| ✅ **Auto-fixed** | {fixed} |\n"
+          pr_body += f"| ⚠️ **Manual review required** | {manual} |\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## 🔴 CRITICAL Vulnerabilities Detected\n\n"
           
           for idx, issue in enumerate(issues, 1):
-              pr_body += f"""
-### {idx}. {issue['cve']}: {issue['title'][:80]}
-
-**🔴 CRITICAL - CVSS Score: {issue['cvss_score']}**
-
-- **Package:** `{issue['package']}`
-- **Current Version:** `{issue['current_version']}`
-- **Fixed Version:** `{issue['fixed_version'] if issue['fixed_version'] else 'Manual review required'}`
-- **Target:** {issue['target']}
-
-**Description:**
-{issue['description']}
-
-"""
+              pr_body += f"\n### {idx}. {issue['cve']}: {issue['title'][:80]}\n\n"
+              pr_body += f"**🔴 CRITICAL - CVSS Score: {issue['cvss_score']}**\n\n"
+              pr_body += f"- **Package:** `{issue['package']}`\n"
+              pr_body += f"- **Current Version:** `{issue['current_version']}`\n"
+              fixed_ver = issue['fixed_version'] if issue['fixed_version'] else 'Manual review required'
+              pr_body += f"- **Fixed Version:** `{fixed_ver}`\n"
+              pr_body += f"- **Target:** {issue['target']}\n\n"
+              pr_body += "**Description:**\n"
+              pr_body += f"{issue['description']}\n\n"
               if issue['fixed_version'] and issue['fixed_version'] not in ['', 'Not available', 'None']:
                   pr_body += "**✅ Status:** Automatically fixed in this PR\n\n"
               else:
@@ -349,12 +340,8 @@ This PR addresses **{len(issues)} CRITICAL severity vulnerabilities** (CVSS 9.0+
               
               pr_body += "---\n\n"
           
-          pr_body += f"""
-## ✅ Automatic Fixes Applied
-
-This PR automatically updates the following packages to secure versions:
-
-"""
+          pr_body += "## ✅ Automatic Fixes Applied\n\n"
+          pr_body += "This PR automatically updates the following packages to secure versions:\n\n"
           
           if fixes:
               for fix in fixes:
@@ -364,60 +351,43 @@ This PR automatically updates the following packages to secure versions:
           else:
               pr_body += "_No automatic fixes available. Manual code changes required._\n\n"
           
-          pr_body += """
----
-
-## 🧪 Testing Requirements
-
-**CRITICAL fixes require thorough testing:**
-
-- [ ] All builds pass
-- [ ] All unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual testing of affected components
-- [ ] Security regression testing
-- [ ] Performance impact assessment
-
----
-
-## ⚠️ Risk Assessment
-
-**These are CRITICAL vulnerabilities:**
-- ✅ Immediate security risk
-- ✅ Potential for data breach
-- ✅ Remote code execution possible
-- ✅ Authentication bypass risk
-- ✅ Privilege escalation possible
-
-**Recommended Action:** 
-1. Review this PR immediately
-2. Test thoroughly
-3. **Merge and deploy ASAP**
-
----
-
-## 📚 Additional Information
-
-- **Scan Type:** SCA (Software Composition Analysis)
-- **Severity:** CRITICAL ONLY (CVSS 9.0+)
-- **Auto-Generated:** Yes
-- **Scan Tools:** Trivy, OWASP Dependency Check
-
----
-
-## 🚨 Next Steps
-
-1. ⚠️ **URGENT:** Review all changes
-2. ✅ **TEST:** Verify builds and tests pass
-3. 🔍 **VERIFY:** Check for breaking changes
-4. ✅ **MERGE:** Apply fixes immediately
-5. 🚀 **DEPLOY:** Push to production ASAP
-
----
-
-*This is an automated CRITICAL security PR. Immediate action is required.*
-*Generated by: Auto PR for CRITICAL Issues workflow*
-"""
+          pr_body += "---\n\n"
+          pr_body += "## 🧪 Testing Requirements\n\n"
+          pr_body += "**CRITICAL fixes require thorough testing:**\n\n"
+          pr_body += "- [ ] All builds pass\n"
+          pr_body += "- [ ] All unit tests pass\n"
+          pr_body += "- [ ] Integration tests pass\n"
+          pr_body += "- [ ] Manual testing of affected components\n"
+          pr_body += "- [ ] Security regression testing\n"
+          pr_body += "- [ ] Performance impact assessment\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## ⚠️ Risk Assessment\n\n"
+          pr_body += "**These are CRITICAL vulnerabilities:**\n"
+          pr_body += "- ✅ Immediate security risk\n"
+          pr_body += "- ✅ Potential for data breach\n"
+          pr_body += "- ✅ Remote code execution possible\n"
+          pr_body += "- ✅ Authentication bypass risk\n"
+          pr_body += "- ✅ Privilege escalation possible\n\n"
+          pr_body += "**Recommended Action:**\n"
+          pr_body += "1. Review this PR immediately\n"
+          pr_body += "2. Test thoroughly\n"
+          pr_body += "3. **Merge and deploy ASAP**\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## 📚 Additional Information\n\n"
+          pr_body += "- **Scan Type:** SCA (Software Composition Analysis)\n"
+          pr_body += "- **Severity:** CRITICAL ONLY (CVSS 9.0+)\n"
+          pr_body += "- **Auto-Generated:** Yes\n"
+          pr_body += "- **Scan Tools:** Trivy, OWASP Dependency Check\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## 🚨 Next Steps\n\n"
+          pr_body += "1. ⚠️ **URGENT:** Review all changes\n"
+          pr_body += "2. ✅ **TEST:** Verify builds and tests pass\n"
+          pr_body += "3. 🔍 **VERIFY:** Check for breaking changes\n"
+          pr_body += "4. ✅ **MERGE:** Apply fixes immediately\n"
+          pr_body += "5. 🚀 **DEPLOY:** Push to production ASAP\n\n"
+          pr_body += "---\n\n"
+          pr_body += "*This is an automated CRITICAL security PR. Immediate action is required.*\n"
+          pr_body += "*Generated by: Auto PR for CRITICAL Issues workflow*\n"
           
           with open('pr-fixes/pr-body.md', 'w') as f:
               f.write(pr_body)

@@ -6,49 +6,25 @@ Quick reference for all automated security scanning and reporting in this reposi
 
 ## 🎯 Available Workflows
 
-### 1. 🔴 Auto PR for CRITICAL Issues ONLY (URGENT! 🚨)
-**File:** `.github/workflows/auto-pr-critical-only.yml`
+### 1. ♻️ Security Fix Pull Requests by Severity (NEW)
+**File:** `.github/workflows/security-pr-by-severity.yml`
 
 **What it does:**
-- Scans for **CRITICAL vulnerabilities ONLY** (CVSS 9.0+)
-- **Your 8 CRITICAL issues** → Automated PR
-- Highest priority fixes
-- Daily monitoring for critical threats
-
-**When it runs:**
-- ✅ **Daily** at 2 AM UTC (critical = urgent!)
-- ✅ Manual trigger available
-
-**Quick Action:**
-https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-only.yml
-
-**Documentation:** [CRITICAL_VULNERABILITIES_FIX.md](CRITICAL_VULNERABILITIES_FIX.md) ⚠️
-
----
-
-### 2. 🔥 Auto PR for CRITICAL & HIGH Vulnerabilities
-**File:** `.github/workflows/auto-pr-critical-high-vulnerabilities.yml`
-
-**What it does:**
-- **SAST + SCA** comprehensive scanning
-- Filters for **CRITICAL and HIGH** (69 issues total)
-- **Automatically creates PRs** with fixes
-- Auto-fixes dependency vulnerabilities
-- Documents code issues for manual review
+- Runs a **single scan (Trivy + Semgrep)** and creates **separate PRs** for each severity: CRITICAL, HIGH, MEDIUM
+- Auto-updates vulnerable dependencies when a fixed version is available
+- Adds a Markdown summary (`security-reports/auto/<severity>-security-summary.md`) so every PR has context even when manual fixes are required
+- Labels PRs with `security`, `automated-pr`, and the severity (`critical`, `high`, `medium`)
 
 **When it runs:**
 - ✅ Every Monday at 3 AM UTC
-- ✅ On every pom.xml/build.sbt change
 - ✅ Manual trigger available
 
 **Quick Action:**
-https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-high-vulnerabilities.yml
-
-**Documentation:** [AUTO_PR_CRITICAL_HIGH_GUIDE.md](AUTO_PR_CRITICAL_HIGH_GUIDE.md)
+https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/security-pr-by-severity.yml
 
 ---
 
-### 3. 🤖 Automated Third-Party Library Security Update
+### 2. 🤖 Automated Third-Party Library Security Update
 **File:** `.github/workflows/working-dependency-update.yml`
 
 **What it does:**
@@ -66,27 +42,7 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/working-dep
 
 ---
 
-### 3.5. 🔗 Fix Transitive Dependencies (NEW! 🎯)
-**File:** `.github/workflows/fix-transitive-dependencies.yml`
-
-**What it does:**
-- **Fixes vulnerabilities in TRANSITIVE dependencies** (dependencies of dependencies)
-- Uses dependency management to force secure versions
-- Identifies which vulnerabilities are NOT in your pom.xml/build.sbt directly
-- Creates PRs with `<dependencyManagement>` overrides
-
-**When it runs:**
-- ✅ Every Monday at 4 AM UTC
-- ✅ Manual trigger available
-
-**Quick Action:**
-https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/fix-transitive-dependencies.yml
-
-**Documentation:** [TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md](TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md) ⚠️
-
----
-
-### 4. 📊 Comprehensive Security Report (Veracode-style)
+### 3. 📊 Comprehensive Security Report (Veracode-style)
 **File:** `.github/workflows/comprehensive-security-report.yml`
 
 **What it does:**
@@ -107,7 +63,7 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 ---
 
-### 5. 🔍 Semgrep Security Scan
+### 4. 🔍 Semgrep Security Scan
 **File:** `.github/workflows/semgrep.yml`
 
 **What it does:**
@@ -123,7 +79,7 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 ---
 
-### 6. 🛡️ CodeQL Analysis
+### 5. 🛡️ CodeQL Analysis
 **File:** `.github/workflows/codeql.yml`
 
 **What it does:**
@@ -142,10 +98,8 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 | Workflow | Severity Filter | Auto PRs | Frequency | Your Issues | Target |
 |----------|-----------------|----------|-----------|-------------|--------|
-| **🔴 CRITICAL Only** | **CRITICAL (9.0+)** | ✅ | Daily | **8 issues** | All |
-| **🔥 Critical + High** | **CRITICAL + HIGH** | ✅ | Weekly | **69 issues** | All |
-| **🤖 Dependency Update** | All | ✅ | Weekly | **All** | Direct Deps |
-| **🔗 Transitive Deps (NEW!)** | **CRITICAL + HIGH** | ✅ | Weekly | **Transitive** | Indirect Deps |
+| **♻️ Security PRs by Severity** | Runs per severity (CRITICAL/HIGH/MEDIUM) | ✅ | Weekly | Severity-specific | Code + Deps |
+| **🤖 Dependency Update** | All | ✅ | Weekly | Direct dependency alerts | Direct Deps |
 | **📊 Comprehensive Report** | All | ❌ Report | Weekly | **112 issues** | All |
 | **🔍 Semgrep** | All | ❌ Alert | Daily | Real-time | Code |
 | **🛡️ CodeQL** | All | ❌ Alert | On Push | Real-time | Code |
@@ -154,26 +108,19 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 ## 🚀 Quick Actions
 
-### 🔴 Fix 8 CRITICAL Vulnerabilities URGENTLY (TOP PRIORITY! 🚨)
-**Use this workflow to fix your 8 most dangerous issues FIRST:**
+### Create Security PRs for Specific Severities (CRITICAL → HIGH → MEDIUM)
+**Run the severity workflow (creates three PRs automatically):**
 ```
-https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-only.yml
+https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/security-pr-by-severity.yml
 ```
-Click "Run workflow" → Wait 2-3 minutes → Review PR → **MERGE IMMEDIATELY!**
-
-### Fix All 69 CRITICAL/HIGH Vulnerabilities (RECOMMENDED ⭐)
-**Use this workflow for SAST + SCA with CRITICAL/HIGH filtering:**
-```
-https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-high-vulnerabilities.yml
-```
-Click "Run workflow" → Wait 3-5 minutes → Review PR → Merge!
+Click "Run workflow" → Wait ~6 minutes → Review PRs labelled `critical`, `high`, `medium` → Merge in priority order.
 
 ### Fix All Dependency Vulnerabilities
-**Use this workflow to create an automated PR for all severities:**
+**Use this workflow to create an automated PR with direct dependency bumps:**
 ```
-https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/working-dependency-update.yml
-```
-Click "Run workflow" → Wait 2 minutes → Review PR → Merge!
+ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/working-dependency-update.yml
+ ```
+ Click "Run workflow" → Wait 2 minutes → Review PR → Merge!
 
 ### Generate Security Report NOW
 **Use this workflow to get a Veracode-style report:**
@@ -225,9 +172,7 @@ Click "Run workflow" → Wait 5-10 minutes → Download reports from Artifacts!
 
 ## 📚 Documentation
 
-- **[CRITICAL_VULNERABILITIES_FIX.md](CRITICAL_VULNERABILITIES_FIX.md)** 🔴 URGENT! - Fix your 8 CRITICAL issues NOW
-- **[TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md](TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md)** 🔗 NEW! - Fix transitive dependency vulnerabilities
-- **[AUTO_PR_CRITICAL_HIGH_GUIDE.md](AUTO_PR_CRITICAL_HIGH_GUIDE.md)** - Auto PRs for CRITICAL/HIGH issues
+- **[SECURITY_PR_BY_SEVERITY.md](SECURITY_PR_BY_SEVERITY.md)** ♻️ NEW – How the severity-based PR workflow works
 - **[AUTOMATED_SECURITY_COMPLETE_GUIDE.md](AUTOMATED_SECURITY_COMPLETE_GUIDE.md)** - Complete automation guide
 - **[VERACODE_STYLE_SECURITY_REPORTS.md](VERACODE_STYLE_SECURITY_REPORTS.md)** - Report generation guide
 - **[SECURITY_SCANNING.md](SECURITY_SCANNING.md)** - Technical scanning details
@@ -237,17 +182,15 @@ Click "Run workflow" → Wait 5-10 minutes → Download reports from Artifacts!
 ## ✅ Current Setup Summary
 
 Your repository has:
-- ✅ **7 automated security workflows**
-- ✅ **🔴 CRITICAL-only workflow** for urgent fixes (DAILY!)
-- ✅ **🔗 Transitive dependency fixing** (NEW!)
+- ✅ **6 automated security workflows**
+- ✅ **Severity-aware PR automation** (creates PR per severity)
 - ✅ **SAST + SCA combined coverage**
-- ✅ **Automatic PR creation** for CRITICAL/HIGH issues
-- ✅ **Intelligent severity filtering** (CRITICAL → HIGH → ALL)
+- ✅ **Automatic PR creation** for direct dependencies
 - ✅ **Professional security reports** (Veracode-style)
 - ✅ **Daily + Weekly automated scans**
 - ✅ **Real-time monitoring** on every push/PR
 
-**Result: Enterprise-grade security automation with military-grade prioritization + transitive dependency resolution!** 🎉
+**Result: Enterprise-grade security automation with severity-prioritised remediation!** 🎉
 
 ---
 
@@ -258,24 +201,17 @@ Your repository has:
 - 🟠 **61 HIGH** - High priority
 - 🟡 **43 MEDIUM/LOW** - Address after critical/high
 
-### Step 1: Fix 8 CRITICAL Issues IMMEDIATELY (DO THIS FIRST! 🚨)
-1. Click: https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-only.yml
-2. Run workflow → Wait 2-3 minutes
-3. Review PR with 8 CRITICAL fixes
-4. **MERGE IMMEDIATELY** - these are urgent!
-5. Deploy ASAP
+### Step 1: Run Severity PR Workflow (CRITICAL → HIGH → MEDIUM)
+1. Trigger: https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/security-pr-by-severity.yml
+2. Wait for completion (~6 minutes)
+3. Review the three generated PRs starting with `critical`
+4. Merge and deploy in priority order
 
-### Step 2: Fix 61 HIGH Issues (DO THIS NEXT)
-1. Click: https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-high-vulnerabilities.yml
-2. Run workflow (SAST + SCA scan)
-3. Review PR with all remaining HIGH fixes
-4. Merge and deploy
-
-### Step 3: Address Remaining Issues
-Use the dependency update workflow for all other severities.
+### Step 2: Run Direct Dependency Update
+Use the dependency update workflow to clear remaining Dependabot alerts.
 
 ---
 
-*Last updated: November 6, 2025*
+*Last updated: November 7, 2025*
 
 

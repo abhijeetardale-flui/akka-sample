@@ -52,7 +52,7 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-cri
 **File:** `.github/workflows/working-dependency-update.yml`
 
 **What it does:**
-- Scans Maven (pom.xml) and SBT (build.sbt) for vulnerable third-party libraries
+- Scans Maven (pom.xml) and SBT (build.sbt) for vulnerable **DIRECT** dependencies
 - **Automatically creates PRs** with security fixes (all severities)
 - Fixes your current 7 Dependabot alerts
 
@@ -63,6 +63,26 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-cri
 
 **Quick Action:**
 https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/working-dependency-update.yml
+
+---
+
+### 3.5. 🔗 Fix Transitive Dependencies (NEW! 🎯)
+**File:** `.github/workflows/fix-transitive-dependencies.yml`
+
+**What it does:**
+- **Fixes vulnerabilities in TRANSITIVE dependencies** (dependencies of dependencies)
+- Uses dependency management to force secure versions
+- Identifies which vulnerabilities are NOT in your pom.xml/build.sbt directly
+- Creates PRs with `<dependencyManagement>` overrides
+
+**When it runs:**
+- ✅ Every Monday at 4 AM UTC
+- ✅ Manual trigger available
+
+**Quick Action:**
+https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/fix-transitive-dependencies.yml
+
+**Documentation:** [TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md](TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md) ⚠️
 
 ---
 
@@ -120,14 +140,15 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 ## 📊 Comparison Table
 
-| Workflow | Severity Filter | Auto PRs | Frequency | Your Issues |
-|----------|-----------------|----------|-----------|-------------|
-| **🔴 CRITICAL Only** | **CRITICAL (9.0+)** | ✅ | Daily | **8 issues** |
-| **🔥 Critical + High** | **CRITICAL + HIGH** | ✅ | Weekly | **69 issues** |
-| **🤖 Dependency Update** | All | ✅ | Weekly | **All** |
-| **📊 Comprehensive Report** | All | ❌ Report | Weekly | **112 issues** |
-| **🔍 Semgrep** | All | ❌ Alert | Daily | Real-time |
-| **🛡️ CodeQL** | All | ❌ Alert | On Push | Real-time |
+| Workflow | Severity Filter | Auto PRs | Frequency | Your Issues | Target |
+|----------|-----------------|----------|-----------|-------------|--------|
+| **🔴 CRITICAL Only** | **CRITICAL (9.0+)** | ✅ | Daily | **8 issues** | All |
+| **🔥 Critical + High** | **CRITICAL + HIGH** | ✅ | Weekly | **69 issues** | All |
+| **🤖 Dependency Update** | All | ✅ | Weekly | **All** | Direct Deps |
+| **🔗 Transitive Deps (NEW!)** | **CRITICAL + HIGH** | ✅ | Weekly | **Transitive** | Indirect Deps |
+| **📊 Comprehensive Report** | All | ❌ Report | Weekly | **112 issues** | All |
+| **🔍 Semgrep** | All | ❌ Alert | Daily | Real-time | Code |
+| **🛡️ CodeQL** | All | ❌ Alert | On Push | Real-time | Code |
 
 ---
 
@@ -205,6 +226,7 @@ Click "Run workflow" → Wait 5-10 minutes → Download reports from Artifacts!
 ## 📚 Documentation
 
 - **[CRITICAL_VULNERABILITIES_FIX.md](CRITICAL_VULNERABILITIES_FIX.md)** 🔴 URGENT! - Fix your 8 CRITICAL issues NOW
+- **[TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md](TRANSITIVE_DEPENDENCIES_FIX_GUIDE.md)** 🔗 NEW! - Fix transitive dependency vulnerabilities
 - **[AUTO_PR_CRITICAL_HIGH_GUIDE.md](AUTO_PR_CRITICAL_HIGH_GUIDE.md)** - Auto PRs for CRITICAL/HIGH issues
 - **[AUTOMATED_SECURITY_COMPLETE_GUIDE.md](AUTOMATED_SECURITY_COMPLETE_GUIDE.md)** - Complete automation guide
 - **[VERACODE_STYLE_SECURITY_REPORTS.md](VERACODE_STYLE_SECURITY_REPORTS.md)** - Report generation guide
@@ -215,8 +237,9 @@ Click "Run workflow" → Wait 5-10 minutes → Download reports from Artifacts!
 ## ✅ Current Setup Summary
 
 Your repository has:
-- ✅ **6 automated security workflows**
+- ✅ **7 automated security workflows**
 - ✅ **🔴 CRITICAL-only workflow** for urgent fixes (DAILY!)
+- ✅ **🔗 Transitive dependency fixing** (NEW!)
 - ✅ **SAST + SCA combined coverage**
 - ✅ **Automatic PR creation** for CRITICAL/HIGH issues
 - ✅ **Intelligent severity filtering** (CRITICAL → HIGH → ALL)
@@ -224,7 +247,7 @@ Your repository has:
 - ✅ **Daily + Weekly automated scans**
 - ✅ **Real-time monitoring** on every push/PR
 
-**Result: Enterprise-grade security automation with military-grade prioritization!** 🎉
+**Result: Enterprise-grade security automation with military-grade prioritization + transitive dependency resolution!** 🎉
 
 ---
 

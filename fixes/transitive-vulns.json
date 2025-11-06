@@ -1,0 +1,92 @@
+[
+  {
+    "groupId": "com.fasterxml.jackson.core",
+    "artifactId": "jackson-core",
+    "currentVersion": "2.11.4",
+    "fixedVersion": "2.15.0",
+    "cve": "CVE-2025-52999",
+    "severity": "HIGH",
+    "target": "akka-sample-sharding-java/pom.xml"
+  },
+  {
+    "groupId": "com.fasterxml.jackson.core",
+    "artifactId": "jackson-databind",
+    "currentVersion": "2.11.4",
+    "fixedVersion": "2.12.7.1, 2.13.4",
+    "cve": "CVE-2022-42004",
+    "severity": "HIGH",
+    "target": "akka-sample-sharding-java/pom.xml"
+  },
+  {
+    "groupId": "com.google.code.gson",
+    "artifactId": "gson",
+    "currentVersion": "2.8.6",
+    "fixedVersion": "2.8.9",
+    "cve": "CVE-2022-25647",
+    "severity": "HIGH",
+    "target": "akka-sample-cluster-client-grpc-java/pom.xml"
+  },
+  {
+    "groupId": "com.google.protobuf",
+    "artifactId": "protobuf-java",
+    "currentVersion": "3.11.4",
+    "fixedVersion": "3.25.5, 4.27.5, 4.28.2",
+    "cve": "CVE-2024-7254",
+    "severity": "HIGH",
+    "target": "akka-sample-cluster-client-grpc-java/pom.xml"
+  },
+  {
+    "groupId": "com.typesafe.akka",
+    "artifactId": "akka-http-core_2.13",
+    "currentVersion": "10.1.11",
+    "fixedVersion": "10.1.15, 10.2.7",
+    "cve": "CVE-2021-42697",
+    "severity": "HIGH",
+    "target": "akka-sample-sharding-java/pom.xml"
+  },
+  {
+    "groupId": "io.grpc",
+    "artifactId": "grpc-netty-shaded",
+    "currentVersion": "1.28.1",
+    "fixedVersion": "1.75.0",
+    "cve": "CVE-2025-55163",
+    "severity": "HIGH",
+    "target": "akka-sample-cluster-client-grpc-java/pom.xml"
+  },
+  {
+    "groupId": "org.scala-lang",
+    "artifactId": "scala-library",
+    "currentVersion": "2.13.8",
+    "fixedVersion": "2.13.9",
+    "cve": "CVE-2022-36944",
+    "severity": "CRITICAL",
+    "target": "akka-sample-sharding-java/pom.xml"
+  },
+  {
+    "groupId": "ch.qos.logback",
+    "artifactId": "logback-classic",
+    "currentVersion": "1.2.11",
+    "fixedVersion": "1.3.12, 1.4.12, 1.2.13",
+    "cve": "CVE-2023-6378",
+    "severity": "HIGH",
+    "target": "akka-sample-sharding-java/pom.xml"
+  },
+  {
+    "groupId": "ch.qos.logback",
+    "artifactId": "logback-core",
+    "currentVersion": "1.2.11",
+    "fixedVersion": "1.3.12, 1.4.12, 1.2.13",
+    "cve": "CVE-2023-6378",
+    "severity": "HIGH",
+    "target": "akka-sample-sharding-java/pom.xml"
+  },
+  {
+    "groupId": "io.netty",
+    "artifactId": "netty-codec",
+    "currentVersion": "4.1.52.Final",
+    "fixedVersion": "4.1.68.Final",
+    "cve": "CVE-2021-37137",
+    "severity": "HIGH",
+    "target": "akka-sample-persistence-dc-java/pom.xml"
+  }
+]

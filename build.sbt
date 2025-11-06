@@ -40,3 +40,17 @@ lazy val `akka-sample-persistence-scala` = project in file("akka-sample-persiste
 lazy val `akka-sample-sharding-scala` = project in file("akka-sample-sharding-scala")
 lazy val `akka-sample-sharding-java` = project in file("akka-sample-sharding-java")
 
+
+// Security: Override vulnerable transitive dependencies
+ThisBuild / dependencyOverrides ++= Seq(
+  "com.fasterxml.jackson.core" % "jackson-core" % "2.15.0",  // CVE-2025-52999
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.7.1, 2.13.4",  // CVE-2022-42004
+  "com.google.code.gson" % "gson" % "2.8.9",  // CVE-2022-25647
+  "com.google.protobuf" % "protobuf-java" % "3.25.5, 4.27.5, 4.28.2",  // CVE-2024-7254
+  "com.typesafe.akka" % "akka-http-core_2.13" % "10.1.15, 10.2.7",  // CVE-2021-42697
+  "io.grpc" % "grpc-netty-shaded" % "1.75.0",  // CVE-2025-55163
+  "org.scala-lang" % "scala-library" % "2.13.9",  // CVE-2022-36944
+  "ch.qos.logback" % "logback-classic" % "1.3.12, 1.4.12, 1.2.13",  // CVE-2023-6378
+  "ch.qos.logback" % "logback-core" % "1.3.12, 1.4.12, 1.2.13",  // CVE-2023-6378
+  "io.netty" % "netty-codec" % "4.1.68.Final",  // CVE-2021-37137
+)

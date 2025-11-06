@@ -1,0 +1,1 @@
+com.lightbend.akka.samples:akka-sample-sharding:pom:1.0-SNAPSHOT

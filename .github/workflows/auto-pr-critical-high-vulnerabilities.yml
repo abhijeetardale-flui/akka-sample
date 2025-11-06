@@ -283,7 +283,7 @@ jobs:
       - name: Generate PR Content
         if: steps.generate_fixes.outputs.has_issues == 'true'
         run: |
-          python3 << 'GENERATE_PR'
+          cat > generate_pr_content.py << 'EOF'
           import json
           
           with open('pr-fixes/issues.json', 'r') as f:
@@ -296,102 +296,80 @@ jobs:
           sast_issues = [i for i in issues if i['type'] == 'SAST']
           
           # Generate PR body
-          pr_body = f"""# 🔒 Automated Security Fixes: CRITICAL & HIGH Issues
-
-This PR automatically addresses **{len(issues)} CRITICAL and HIGH severity security issues** detected by automated security scanning.
-
-## 📊 Issue Breakdown
-
-| Type | Count | Description |
-|------|-------|-------------|
-| 🔴 **CRITICAL** | {len(critical)} | Immediate action required |
-| 🟠 **HIGH** | {len(high)} | High priority fixes |
-| 📦 **SCA** (Dependencies) | {len(sca_issues)} | Third-party library vulnerabilities |
-| 🔍 **SAST** (Code) | {len(sast_issues)} | Code-level security issues |
-
----
-
-## 🔴 CRITICAL Severity Issues
-
-"""
+          total = len(issues)
+          crit_count = len(critical)
+          high_count = len(high)
+          sca_count = len(sca_issues)
+          sast_count = len(sast_issues)
+          
+          pr_body = f"# 🔒 Automated Security Fixes: CRITICAL & HIGH Issues\n\n"
+          pr_body += f"This PR automatically addresses **{total} CRITICAL and HIGH severity security issues** "
+          pr_body += "detected by automated security scanning.\n\n"
+          pr_body += "## 📊 Issue Breakdown\n\n"
+          pr_body += "| Type | Count | Description |\n"
+          pr_body += "|------|-------|-------------|\n"
+          pr_body += f"| 🔴 **CRITICAL** | {crit_count} | Immediate action required |\n"
+          pr_body += f"| 🟠 **HIGH** | {high_count} | High priority fixes |\n"
+          pr_body += f"| 📦 **SCA** (Dependencies) | {sca_count} | Third-party library vulnerabilities |\n"
+          pr_body += f"| 🔍 **SAST** (Code) | {sast_count} | Code-level security issues |\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## 🔴 CRITICAL Severity Issues\n\n"
           
           if critical:
               for issue in critical:
                   if issue['type'] == 'SCA':
-                      pr_body += f"""
-### {issue['cve']}: {issue['title'][:80]}
-- **Package:** `{issue['package']}`
-- **Current Version:** {issue['current_version']}
-- **Fixed Version:** {issue['fixed_version']}
-- **Type:** Software Composition Analysis (SCA)
-- **Description:** {issue['description']}
-- **✅ Auto-fixed:** Updated to secure version
-
-"""
+                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
+                      pr_body += f"- **Package:** `{issue['package']}`\n"
+                      pr_body += f"- **Current Version:** {issue['current_version']}\n"
+                      pr_body += f"- **Fixed Version:** {issue['fixed_version']}\n"
+                      pr_body += "- **Type:** Software Composition Analysis (SCA)\n"
+                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **✅ Auto-fixed:** Updated to secure version\n\n"
                   else:  # SAST
-                      pr_body += f"""
-### {issue['cve']}: {issue['title'][:80]}
-- **File:** `{issue['file']}`
-- **Line:** {issue['line']}
-- **Type:** Static Application Security Testing (SAST)
-- **Description:** {issue['description']}
-- **⚠️ Manual review required** - Please review and apply suggested fix
-
-"""
+                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
+                      pr_body += f"- **File:** `{issue['file']}`\n"
+                      pr_body += f"- **Line:** {issue['line']}\n"
+                      pr_body += "- **Type:** Static Application Security Testing (SAST)\n"
+                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **⚠️ Manual review required** - Please review and apply suggested fix\n\n"
           else:
               pr_body += "_No CRITICAL issues found._\n\n"
           
-          pr_body += """---
-
-## 🟠 HIGH Severity Issues
-
-"""
+          pr_body += "---\n\n"
+          pr_body += "## 🟠 HIGH Severity Issues\n\n"
           
           if high:
               for issue in high:
                   if issue['type'] == 'SCA':
-                      pr_body += f"""
-### {issue['cve']}: {issue['title'][:80]}
-- **Package:** `{issue['package']}`
-- **Current Version:** {issue['current_version']}
-- **Fixed Version:** {issue['fixed_version']}
-- **Type:** Software Composition Analysis (SCA)
-- **Description:** {issue['description']}
-- **✅ Auto-fixed:** Updated to secure version
-
-"""
+                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
+                      pr_body += f"- **Package:** `{issue['package']}`\n"
+                      pr_body += f"- **Current Version:** {issue['current_version']}\n"
+                      pr_body += f"- **Fixed Version:** {issue['fixed_version']}\n"
+                      pr_body += "- **Type:** Software Composition Analysis (SCA)\n"
+                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **✅ Auto-fixed:** Updated to secure version\n\n"
                   else:  # SAST
-                      pr_body += f"""
-### {issue['cve']}: {issue['title'][:80]}
-- **File:** `{issue['file']}`
-- **Line:** {issue['line']}
-- **Type:** Static Application Security Testing (SAST)
-- **Description:** {issue['description']}
-- **⚠️ Manual review required** - Please review and apply suggested fix
-
-"""
+                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
+                      pr_body += f"- **File:** `{issue['file']}`\n"
+                      pr_body += f"- **Line:** {issue['line']}\n"
+                      pr_body += "- **Type:** Static Application Security Testing (SAST)\n"
+                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **⚠️ Manual review required** - Please review and apply suggested fix\n\n"
           else:
               pr_body += "_No HIGH severity issues found._\n\n"
           
-          pr_body += f"""---
-
-## ✅ What Was Fixed Automatically
-
-This PR includes **automatic fixes** for:
-- ✅ **{len(sca_issues)} SCA (dependency) vulnerabilities** - Updated to secure versions
-- ⚠️ **{len(sast_issues)} SAST (code) issues** - Identified for manual review
-
-### Automatic Dependency Updates Applied:
-"""
+          pr_body += "---\n\n"
+          pr_body += "## ✅ What Was Fixed Automatically\n\n"
+          pr_body += "This PR includes **automatic fixes** for:\n"
+          pr_body += f"- ✅ **{sca_count} SCA (dependency) vulnerabilities** - Updated to secure versions\n"
+          pr_body += f"- ⚠️ **{sast_count} SAST (code) issues** - Identified for manual review\n\n"
+          pr_body += "### Automatic Dependency Updates Applied:\n"
           
           for issue in sca_issues:
               if issue.get('fixed_version') and issue['fixed_version'] != 'Not available':
                   pr_body += f"- `{issue['package']}`: {issue['current_version']} → {issue['fixed_version']} ({issue['cve']})\n"
           
-          pr_body += """
-
-### Manual Code Review Required:
-"""
+          pr_body += "\n### Manual Code Review Required:\n"
           
           if sast_issues:
               pr_body += "The following SAST issues require manual code changes:\n\n"
@@ -400,50 +378,38 @@ This PR includes **automatic fixes** for:
           else:
               pr_body += "_No manual code changes required._\n"
           
-          pr_body += """
-
----
-
-## 🧪 Testing
-
-Please verify:
-1. ✅ All builds pass
-2. ✅ Tests pass
-3. ✅ No regressions introduced
-4. ⚠️ Review SAST issues and apply fixes if needed
-
----
-
-## 📚 Additional Information
-
-- **Scan Type:** SAST + SCA (Comprehensive)
-- **Severity Filter:** CRITICAL and HIGH only
-- **Auto-Generated:** Yes, by security automation workflow
-- **Triggered By:** """ + "${GITHUB_EVENT_NAME}" + """
-
----
-
-## 🎯 Next Steps
-
-1. **Review this PR** - Check all changes
-2. **Test thoroughly** - Ensure no breaking changes
-3. **Merge when ready** - Apply security fixes
-4. **Monitor** - Watch for any issues post-merge
-
-**This is an automated security PR. Please review carefully before merging.**
-
----
-
-*Generated by: Auto PR for Critical & High Vulnerabilities workflow*
-*Scan Date: """ + "${GITHUB_RUN_ID}" + """*
-"""
+          pr_body += "\n---\n\n"
+          pr_body += "## 🧪 Testing\n\n"
+          pr_body += "Please verify:\n"
+          pr_body += "1. ✅ All builds pass\n"
+          pr_body += "2. ✅ Tests pass\n"
+          pr_body += "3. ✅ No regressions introduced\n"
+          pr_body += "4. ⚠️ Review SAST issues and apply fixes if needed\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## 📚 Additional Information\n\n"
+          pr_body += "- **Scan Type:** SAST + SCA (Comprehensive)\n"
+          pr_body += "- **Severity Filter:** CRITICAL and HIGH only\n"
+          pr_body += "- **Auto-Generated:** Yes, by security automation workflow\n"
+          pr_body += "- **Triggered By:** ${{github.event_name}}\n\n"
+          pr_body += "---\n\n"
+          pr_body += "## 🎯 Next Steps\n\n"
+          pr_body += "1. **Review this PR** - Check all changes\n"
+          pr_body += "2. **Test thoroughly** - Ensure no breaking changes\n"
+          pr_body += "3. **Merge when ready** - Apply security fixes\n"
+          pr_body += "4. **Monitor** - Watch for any issues post-merge\n\n"
+          pr_body += "**This is an automated security PR. Please review carefully before merging.**\n\n"
+          pr_body += "---\n\n"
+          pr_body += "*Generated by: Auto PR for Critical & High Vulnerabilities workflow*\n"
+          pr_body += f"*Scan Date: ${{github.run_id}}*\n"
           
           # Save PR body
           with open('pr-fixes/pr-body.md', 'w') as f:
               f.write(pr_body)
           
           print("✅ PR content generated")
-          GENERATE_PR
+          EOF
+          
+          python3 generate_pr_content.py
       
       # ============================================
       # 6. Check for Changes

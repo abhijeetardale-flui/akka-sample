@@ -289,7 +289,7 @@ jobs:
       - name: Generate PR Content
         if: steps.generate_fixes.outputs.has_critical == 'true'
         run: |
-          python3 << 'GENERATE_PR'
+          cat > generate_pr_content.py << 'EOF'
           import json
           
           with open('pr-fixes/critical-issues.json', 'r') as f:
@@ -423,7 +423,9 @@ This PR automatically updates the following packages to secure versions:
               f.write(pr_body)
           
           print("✅ PR content generated")
-          GENERATE_PR
+          EOF
+          
+          python3 generate_pr_content.py
       
       # ============================================
       # 5. Check for Changes

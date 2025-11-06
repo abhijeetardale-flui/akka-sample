@@ -325,3 +325,4 @@ GitHub knows Dependabot doesn't support SBT, but:
 
 *Dependabot is great, but for SBT projects, Scala Steward is the way!* ⭐
 
+

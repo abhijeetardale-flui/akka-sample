@@ -106,3 +106,4 @@ If the error is still there:
 - Enable GitHub Advanced Security in repository settings
 - Or modify workflows to remove SARIF upload steps and use artifacts only
 
+

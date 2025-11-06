@@ -6,12 +6,34 @@ Quick reference for all automated security scanning and reporting in this reposi
 
 ## 🎯 Available Workflows
 
-### 1. 🤖 Automated Third-Party Library Security Update
+### 1. 🔥 Auto PR for CRITICAL & HIGH Vulnerabilities (NEW! ⭐)
+**File:** `.github/workflows/auto-pr-critical-high-vulnerabilities.yml`
+
+**What it does:**
+- **SAST + SCA** comprehensive scanning
+- Filters for **CRITICAL and HIGH only**
+- **Automatically creates PRs** with fixes
+- Auto-fixes dependency vulnerabilities
+- Documents code issues for manual review
+
+**When it runs:**
+- ✅ Every Monday at 3 AM UTC
+- ✅ On every pom.xml/build.sbt change
+- ✅ Manual trigger available
+
+**Quick Action:**
+https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-high-vulnerabilities.yml
+
+**Documentation:** [AUTO_PR_CRITICAL_HIGH_GUIDE.md](AUTO_PR_CRITICAL_HIGH_GUIDE.md)
+
+---
+
+### 2. 🤖 Automated Third-Party Library Security Update
 **File:** `.github/workflows/working-dependency-update.yml`
 
 **What it does:**
 - Scans Maven (pom.xml) and SBT (build.sbt) for vulnerable third-party libraries
-- **Automatically creates PRs** with security fixes
+- **Automatically creates PRs** with security fixes (all severities)
 - Fixes your current 7 Dependabot alerts
 
 **When it runs:**
@@ -24,7 +46,7 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/working-dep
 
 ---
 
-### 2. 📊 Comprehensive Security Report (Veracode-style)
+### 3. 📊 Comprehensive Security Report (Veracode-style)
 **File:** `.github/workflows/comprehensive-security-report.yml`
 
 **What it does:**
@@ -45,7 +67,7 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 ---
 
-### 3. 🔍 Semgrep Security Scan
+### 4. 🔍 Semgrep Security Scan
 **File:** `.github/workflows/semgrep.yml`
 
 **What it does:**
@@ -61,7 +83,7 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 ---
 
-### 4. 🛡️ CodeQL Analysis
+### 5. 🛡️ CodeQL Analysis
 **File:** `.github/workflows/codeql.yml`
 
 **What it does:**
@@ -78,19 +100,27 @@ https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/comprehensi
 
 ## 📊 Comparison Table
 
-| Workflow | Third-Party Libs | Code Scanning | Auto PRs | Reports | Schedule |
-|----------|------------------|---------------|----------|---------|----------|
-| **Dependency Update** | ✅ | ❌ | ✅ | ❌ | Weekly |
-| **Comprehensive Report** | ✅ | ✅ | ❌ | ✅ | Weekly + Push |
-| **Semgrep** | ❌ | ✅ | ❌ | ✅ | Daily + Push + PR |
-| **CodeQL** | ❌ | ✅ | ❌ | ✅ | Push + PR |
+| Workflow | Third-Party Libs | Code Scanning | Auto PRs | Severity Filter | Reports |
+|----------|------------------|---------------|----------|-----------------|---------|
+| **🔥 Auto PR Critical/High** | ✅ (SCA) | ✅ (SAST) | ✅ | **CRITICAL+HIGH only** | ❌ |
+| **Dependency Update** | ✅ | ❌ | ✅ | All | ❌ |
+| **Comprehensive Report** | ✅ | ✅ | ❌ | All | ✅ |
+| **Semgrep** | ❌ | ✅ | ❌ | All | ✅ |
+| **CodeQL** | ❌ | ✅ | ❌ | All | ✅ |
 
 ---
 
 ## 🚀 Quick Actions
 
-### Fix Vulnerabilities NOW
-**Use this workflow to create an automated PR:**
+### Fix CRITICAL/HIGH Vulnerabilities NOW (RECOMMENDED ⭐)
+**Use this workflow for SAST + SCA with CRITICAL/HIGH filtering:**
+```
+https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-high-vulnerabilities.yml
+```
+Click "Run workflow" → Wait 3-5 minutes → Review PR → Merge!
+
+### Fix All Dependency Vulnerabilities
+**Use this workflow to create an automated PR for all severities:**
 ```
 https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/working-dependency-update.yml
 ```
@@ -146,6 +176,7 @@ Click "Run workflow" → Wait 5-10 minutes → Download reports from Artifacts!
 
 ## 📚 Documentation
 
+- **[AUTO_PR_CRITICAL_HIGH_GUIDE.md](AUTO_PR_CRITICAL_HIGH_GUIDE.md)** 🔥 NEW! - Auto PRs for CRITICAL/HIGH issues
 - **[AUTOMATED_SECURITY_COMPLETE_GUIDE.md](AUTOMATED_SECURITY_COMPLETE_GUIDE.md)** - Complete automation guide
 - **[VERACODE_STYLE_SECURITY_REPORTS.md](VERACODE_STYLE_SECURITY_REPORTS.md)** - Report generation guide
 - **[SECURITY_SCANNING.md](SECURITY_SCANNING.md)** - Technical scanning details
@@ -155,14 +186,15 @@ Click "Run workflow" → Wait 5-10 minutes → Download reports from Artifacts!
 ## ✅ Current Setup Summary
 
 Your repository has:
-- ✅ **4 automated security workflows**
-- ✅ **3 different scanning approaches** (SAST, SCA, Code Analysis)
-- ✅ **Automatic PR creation** for fixes
+- ✅ **5 automated security workflows**
+- ✅ **SAST + SCA combined coverage** 🔥 NEW!
+- ✅ **Automatic PR creation** for CRITICAL/HIGH issues
+- ✅ **Severity filtering** (CRITICAL + HIGH priority)
 - ✅ **Professional security reports** (Veracode-style)
 - ✅ **Weekly automated scans**
 - ✅ **Real-time monitoring** on every push/PR
 
-**Result: Enterprise-grade security automation, completely free!** 🎉
+**Result: Enterprise-grade security automation with intelligent prioritization!** 🎉
 
 ---
 
@@ -172,7 +204,14 @@ Your repository has:
 - 6 HIGH: Logback serialization issues
 - 1 MODERATE: Akka Management authentication
 
-**Fix them now:**
+**Fix them now (RECOMMENDED):**
+1. Click: https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/auto-pr-critical-high-vulnerabilities.yml
+2. Run workflow (SAST + SCA scan)
+3. Review PR with all CRITICAL/HIGH fixes
+4. Merge
+5. Done! ✅
+
+**Alternative (SCA only):**
 1. Click: https://github.com/abhijeetardale-flui/akka-sample/actions/workflows/working-dependency-update.yml
 2. Run workflow
 3. Review PR
@@ -182,4 +221,5 @@ Your repository has:
 ---
 
 *Last updated: November 6, 2025*
+
 

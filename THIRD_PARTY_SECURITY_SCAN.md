@@ -344,3 +344,4 @@ Actions → Scala Steward → Run workflow
 
 *Your third-party libraries are now under continuous security monitoring!* 🛡️
 
+

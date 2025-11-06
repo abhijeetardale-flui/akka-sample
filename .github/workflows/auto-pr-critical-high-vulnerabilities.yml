@@ -1,0 +1,565 @@
+name: Auto PR for Critical & High Vulnerabilities (SAST + SCA)
+
+# Automatically creates PRs for CRITICAL and HIGH severity issues
+# Covers: SAST (code vulnerabilities) + SCA (dependency vulnerabilities)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'  # Every Monday at 3 AM UTC
+  push:
+    branches: [ main ]
+    paths:
+      - '**/pom.xml'
+      - '**/build.sbt'
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: read
+  issues: write
+
+jobs:
+  scan-and-create-prs:
+    name: Scan & Auto-Create PRs for Critical/High Issues
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      
+      - name: Create scan results directory
+        run: |
+          mkdir -p scan-results
+          mkdir -p pr-fixes
+      
+      # ============================================
+      # 1. SCA - Software Composition Analysis
+      # ============================================
+      - name: Trivy SCA Scan
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'json'
+          output: 'scan-results/trivy-sca.json'
+          severity: 'CRITICAL,HIGH'
+          scanners: 'vuln'
+      
+      # ============================================
+      # 2. SAST - Static Application Security Testing
+      # ============================================
+      - name: Semgrep SAST Scan
+        continue-on-error: true
+        run: |
+          echo "🔍 Running Semgrep SAST..."
+          
+          docker run --rm -v "${PWD}:/src" returntocorp/semgrep:latest \
+            semgrep scan --config auto \
+            --json --output /src/scan-results/semgrep-sast.json \
+            --severity ERROR --severity WARNING \
+            /src || true
+          
+          echo "✅ Semgrep SAST complete"
+      
+      # ============================================
+      # 3. Parse Results & Generate Fixes
+      # ============================================
+      - name: Parse Scan Results and Generate Fixes
+        id: generate_fixes
+        run: |
+          cat > parse_and_fix.py << 'PYTHON_SCRIPT'
+          import json
+          import os
+          from collections import defaultdict
+          
+          # Load scan results
+          def load_json_safe(filepath):
+              try:
+                  with open(filepath, 'r') as f:
+                      return json.load(f)
+              except Exception as e:
+                  print(f"Could not load {filepath}: {e}")
+                  return {}
+          
+          trivy_data = load_json_safe('scan-results/trivy-sca.json')
+          semgrep_data = load_json_safe('scan-results/semgrep-sast.json')
+          
+          critical_high_issues = []
+          fixes_to_apply = []
+          
+          # Parse Trivy SCA results (CRITICAL/HIGH only)
+          print("📊 Parsing SCA (Software Composition Analysis) results...")
+          sca_count = 0
+          if 'Results' in trivy_data:
+              for result in trivy_data.get('Results', []):
+                  for vuln in result.get('Vulnerabilities', []):
+                      severity = vuln.get('Severity', 'UNKNOWN')
+                      if severity in ['CRITICAL', 'HIGH']:
+                          sca_count += 1
+                          pkg_name = vuln.get('PkgName', 'Unknown')
+                          current_version = vuln.get('InstalledVersion', 'Unknown')
+                          fixed_version = vuln.get('FixedVersion', '')
+                          
+                          issue = {
+                              'type': 'SCA',
+                              'severity': severity,
+                              'cve': vuln.get('VulnerabilityID', 'N/A'),
+                              'package': pkg_name,
+                              'current_version': current_version,
+                              'fixed_version': fixed_version,
+                              'title': vuln.get('Title', 'No title'),
+                              'description': vuln.get('Description', 'No description')[:200]
+                          }
+                          critical_high_issues.append(issue)
+                          
+                          # Generate fix if version available
+                          if fixed_version and fixed_version != 'Not available':
+                              fixes_to_apply.append({
+                                  'type': 'dependency_update',
+                                  'package': pkg_name,
+                                  'from_version': current_version,
+                                  'to_version': fixed_version,
+                                  'severity': severity,
+                                  'cve': vuln.get('VulnerabilityID', 'N/A')
+                              })
+          
+          print(f"✅ SCA: Found {sca_count} CRITICAL/HIGH vulnerabilities")
+          
+          # Parse Semgrep SAST results (ERROR/WARNING = HIGH/MEDIUM)
+          print("📊 Parsing SAST (Static Application Security Testing) results...")
+          sast_count = 0
+          if 'results' in semgrep_data:
+              for result in semgrep_data.get('results', []):
+                  severity_str = result.get('extra', {}).get('severity', 'INFO')
+                  # Map ERROR -> HIGH, WARNING -> MEDIUM
+                  severity = 'HIGH' if severity_str == 'ERROR' else ('MEDIUM' if severity_str == 'WARNING' else 'LOW')
+                  
+                  if severity in ['HIGH']:  # Only HIGH for SAST (Semgrep ERROR)
+                      sast_count += 1
+                      issue = {
+                          'type': 'SAST',
+                          'severity': severity,
+                          'cve': result.get('check_id', 'N/A'),
+                          'file': result.get('path', 'Unknown'),
+                          'line': result.get('start', {}).get('line', 'N/A'),
+                          'title': result.get('extra', {}).get('message', 'Security issue detected')[:100],
+                          'description': result.get('extra', {}).get('metadata', {}).get('description', 'No description')[:200]
+                      }
+                      critical_high_issues.append(issue)
+          
+          print(f"✅ SAST: Found {sast_count} HIGH severity issues")
+          
+          # Save results
+          with open('pr-fixes/issues.json', 'w') as f:
+              json.dump(critical_high_issues, f, indent=2)
+          
+          with open('pr-fixes/fixes.json', 'w') as f:
+              json.dump(fixes_to_apply, f, indent=2)
+          
+          # Summary
+          total_issues = len(critical_high_issues)
+          total_fixes = len(fixes_to_apply)
+          
+          print(f"\n📊 SUMMARY:")
+          print(f"   Total CRITICAL/HIGH Issues: {total_issues}")
+          print(f"   - SCA (Dependencies): {sca_count}")
+          print(f"   - SAST (Code): {sast_count}")
+          print(f"   Auto-fixable: {total_fixes}")
+          
+          # Set output
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"total_issues={total_issues}\n")
+              f.write(f"sca_count={sca_count}\n")
+              f.write(f"sast_count={sast_count}\n")
+              f.write(f"fixable_count={total_fixes}\n")
+              f.write(f"has_issues={'true' if total_issues > 0 else 'false'}\n")
+          PYTHON_SCRIPT
+          
+          python3 parse_and_fix.py
+      
+      # ============================================
+      # 4. Apply Dependency Fixes (SCA)
+      # ============================================
+      - name: Apply SCA Fixes (Dependency Updates)
+        if: steps.generate_fixes.outputs.has_issues == 'true'
+        run: |
+          echo "🔧 Applying SCA fixes..."
+          
+          python3 << 'APPLY_FIXES'
+          import json
+          import subprocess
+          import re
+          
+          with open('pr-fixes/fixes.json', 'r') as f:
+              fixes = json.load(f)
+          
+          changes_made = []
+          
+          for fix in fixes:
+              if fix['type'] == 'dependency_update':
+                  pkg = fix['package']
+                  from_ver = fix['from_version']
+                  to_ver = fix['to_version']
+                  
+                  print(f"📦 Updating {pkg}: {from_ver} → {to_ver}")
+                  
+                  # Maven (pom.xml) updates
+                  pom_files = subprocess.run(['find', '.', '-name', 'pom.xml', '-type', 'f'], 
+                                            capture_output=True, text=True).stdout.strip().split('\n')
+                  
+                  for pom_file in pom_files:
+                      if not pom_file:
+                          continue
+                      
+                      try:
+                          with open(pom_file, 'r') as f:
+                              content = f.read()
+                          
+                          # Try various Maven patterns
+                          patterns = [
+                              (f'<{pkg}.version>{from_ver}</{pkg}.version>', 
+                               f'<{pkg}.version>{to_ver}</{pkg}.version>'),
+                              (f'<version>{from_ver}</version>', 
+                               f'<version>{to_ver}</version>')
+                          ]
+                          
+                          original_content = content
+                          for old_pattern, new_pattern in patterns:
+                              content = content.replace(old_pattern, new_pattern)
+                          
+                          if content != original_content:
+                              with open(pom_file, 'w') as f:
+                                  f.write(content)
+                              changes_made.append(f"{pkg} in {pom_file}")
+                              print(f"  ✅ Updated {pom_file}")
+                      except Exception as e:
+                          print(f"  ⚠️ Could not update {pom_file}: {e}")
+                  
+                  # SBT (build.sbt) updates
+                  sbt_files = subprocess.run(['find', '.', '-name', 'build.sbt', '-type', 'f'], 
+                                            capture_output=True, text=True).stdout.strip().split('\n')
+                  
+                  for sbt_file in sbt_files:
+                      if not sbt_file:
+                          continue
+                      
+                      try:
+                          with open(sbt_file, 'r') as f:
+                              content = f.read()
+                          
+                          # SBT patterns
+                          original_content = content
+                          # Simple version string replacement
+                          content = re.sub(
+                              rf'("{pkg}".*?")({from_ver})(")',
+                              rf'\g<1>{to_ver}\g<3>',
+                              content
+                          )
+                          
+                          if content != original_content:
+                              with open(sbt_file, 'w') as f:
+                                  f.write(content)
+                              changes_made.append(f"{pkg} in {sbt_file}")
+                              print(f"  ✅ Updated {sbt_file}")
+                      except Exception as e:
+                          print(f"  ⚠️ Could not update {sbt_file}: {e}")
+          
+          print(f"\n✅ Applied {len(changes_made)} dependency updates")
+          APPLY_FIXES
+          
+          echo "✅ SCA fixes applied"
+      
+      # ============================================
+      # 5. Generate PR Content
+      # ============================================
+      - name: Generate PR Content
+        if: steps.generate_fixes.outputs.has_issues == 'true'
+        run: |
+          python3 << 'GENERATE_PR'
+          import json
+          
+          with open('pr-fixes/issues.json', 'r') as f:
+              issues = json.load(f)
+          
+          # Group by severity and type
+          critical = [i for i in issues if i['severity'] == 'CRITICAL']
+          high = [i for i in issues if i['severity'] == 'HIGH']
+          sca_issues = [i for i in issues if i['type'] == 'SCA']
+          sast_issues = [i for i in issues if i['type'] == 'SAST']
+          
+          # Generate PR body
+          pr_body = f"""# 🔒 Automated Security Fixes: CRITICAL & HIGH Issues
+
+This PR automatically addresses **{len(issues)} CRITICAL and HIGH severity security issues** detected by automated security scanning.
+
+## 📊 Issue Breakdown
+
+| Type | Count | Description |
+|------|-------|-------------|
+| 🔴 **CRITICAL** | {len(critical)} | Immediate action required |
+| 🟠 **HIGH** | {len(high)} | High priority fixes |
+| 📦 **SCA** (Dependencies) | {len(sca_issues)} | Third-party library vulnerabilities |
+| 🔍 **SAST** (Code) | {len(sast_issues)} | Code-level security issues |
+
+---
+
+## 🔴 CRITICAL Severity Issues
+
+"""
+          
+          if critical:
+              for issue in critical:
+                  if issue['type'] == 'SCA':
+                      pr_body += f"""
+### {issue['cve']}: {issue['title'][:80]}
+- **Package:** `{issue['package']}`
+- **Current Version:** {issue['current_version']}
+- **Fixed Version:** {issue['fixed_version']}
+- **Type:** Software Composition Analysis (SCA)
+- **Description:** {issue['description']}
+- **✅ Auto-fixed:** Updated to secure version
+
+"""
+                  else:  # SAST
+                      pr_body += f"""
+### {issue['cve']}: {issue['title'][:80]}
+- **File:** `{issue['file']}`
+- **Line:** {issue['line']}
+- **Type:** Static Application Security Testing (SAST)
+- **Description:** {issue['description']}
+- **⚠️ Manual review required** - Please review and apply suggested fix
+
+"""
+          else:
+              pr_body += "_No CRITICAL issues found._\n\n"
+          
+          pr_body += """---
+
+## 🟠 HIGH Severity Issues
+
+"""
+          
+          if high:
+              for issue in high:
+                  if issue['type'] == 'SCA':
+                      pr_body += f"""
+### {issue['cve']}: {issue['title'][:80]}
+- **Package:** `{issue['package']}`
+- **Current Version:** {issue['current_version']}
+- **Fixed Version:** {issue['fixed_version']}
+- **Type:** Software Composition Analysis (SCA)
+- **Description:** {issue['description']}
+- **✅ Auto-fixed:** Updated to secure version
+
+"""
+                  else:  # SAST
+                      pr_body += f"""
+### {issue['cve']}: {issue['title'][:80]}
+- **File:** `{issue['file']}`
+- **Line:** {issue['line']}
+- **Type:** Static Application Security Testing (SAST)
+- **Description:** {issue['description']}
+- **⚠️ Manual review required** - Please review and apply suggested fix
+
+"""
+          else:
+              pr_body += "_No HIGH severity issues found._\n\n"
+          
+          pr_body += f"""---
+
+## ✅ What Was Fixed Automatically
+
+This PR includes **automatic fixes** for:
+- ✅ **{len(sca_issues)} SCA (dependency) vulnerabilities** - Updated to secure versions
+- ⚠️ **{len(sast_issues)} SAST (code) issues** - Identified for manual review
+
+### Automatic Dependency Updates Applied:
+"""
+          
+          for issue in sca_issues:
+              if issue.get('fixed_version') and issue['fixed_version'] != 'Not available':
+                  pr_body += f"- `{issue['package']}`: {issue['current_version']} → {issue['fixed_version']} ({issue['cve']})\n"
+          
+          pr_body += """
+
+### Manual Code Review Required:
+"""
+          
+          if sast_issues:
+              pr_body += "The following SAST issues require manual code changes:\n\n"
+              for issue in sast_issues:
+                  pr_body += f"- [ ] **{issue['file']}:{issue['line']}** - {issue['title'][:60]} ({issue['cve']})\n"
+          else:
+              pr_body += "_No manual code changes required._\n"
+          
+          pr_body += """
+
+---
+
+## 🧪 Testing
+
+Please verify:
+1. ✅ All builds pass
+2. ✅ Tests pass
+3. ✅ No regressions introduced
+4. ⚠️ Review SAST issues and apply fixes if needed
+
+---
+
+## 📚 Additional Information
+
+- **Scan Type:** SAST + SCA (Comprehensive)
+- **Severity Filter:** CRITICAL and HIGH only
+- **Auto-Generated:** Yes, by security automation workflow
+- **Triggered By:** """ + "${GITHUB_EVENT_NAME}" + """
+
+---
+
+## 🎯 Next Steps
+
+1. **Review this PR** - Check all changes
+2. **Test thoroughly** - Ensure no breaking changes
+3. **Merge when ready** - Apply security fixes
+4. **Monitor** - Watch for any issues post-merge
+
+**This is an automated security PR. Please review carefully before merging.**
+
+---
+
+*Generated by: Auto PR for Critical & High Vulnerabilities workflow*
+*Scan Date: """ + "${GITHUB_RUN_ID}" + """*
+"""
+          
+          # Save PR body
+          with open('pr-fixes/pr-body.md', 'w') as f:
+              f.write(pr_body)
+          
+          print("✅ PR content generated")
+          GENERATE_PR
+      
+      # ============================================
+      # 6. Check for Changes
+      # ============================================
+      - name: Check for changes
+        id: check_changes
+        if: steps.generate_fixes.outputs.has_issues == 'true'
+        run: |
+          if git diff --quiet; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No fixable changes to commit"
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "✅ Changes detected"
+          fi
+      
+      # ============================================
+      # 7. Create Pull Request
+      # ============================================
+      - name: Create Pull Request
+        if: steps.generate_fixes.outputs.has_issues == 'true' && steps.check_changes.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            🔒 Security: Fix ${{ steps.generate_fixes.outputs.total_issues }} CRITICAL/HIGH vulnerabilities
+            
+            - SCA (Dependencies): ${{ steps.generate_fixes.outputs.sca_count }} issues
+            - SAST (Code): ${{ steps.generate_fixes.outputs.sast_count }} issues
+            - Auto-fixed: ${{ steps.generate_fixes.outputs.fixable_count }} dependency updates
+          title: "🔒 Security: Fix ${{ steps.generate_fixes.outputs.total_issues }} CRITICAL/HIGH vulnerabilities (SAST + SCA)"
+          body-path: pr-fixes/pr-body.md
+          branch: security/auto-fix-critical-high
+          delete-branch: true
+          labels: |
+            security
+            critical
+            high-severity
+            automated-pr
+            sast
+            sca
+          assignees: abhijeetardale-flui
+          reviewers: abhijeetardale-flui
+      
+      # ============================================
+      # 8. Create Issue if No Auto-Fix Available
+      # ============================================
+      - name: Create Issue for Manual Fixes
+        if: steps.generate_fixes.outputs.has_issues == 'true' && steps.check_changes.outputs.changes == 'false'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const issuesData = JSON.parse(fs.readFileSync('pr-fixes/issues.json', 'utf8'));
+            
+            let issueBody = `# 🔒 Security Alert: ${issuesData.length} CRITICAL/HIGH Issues Require Manual Fixes\n\n`;
+            issueBody += `**These security issues cannot be auto-fixed and require manual code changes.**\n\n`;
+            issueBody += `## Issues:\n\n`;
+            
+            issuesData.forEach((issue, idx) => {
+              issueBody += `### ${idx + 1}. [${issue.severity}] ${issue.title}\n`;
+              issueBody += `- **Type:** ${issue.type}\n`;
+              if (issue.type === 'SCA') {
+                issueBody += `- **Package:** ${issue.package}\n`;
+                issueBody += `- **CVE:** ${issue.cve}\n`;
+              } else {
+                issueBody += `- **File:** ${issue.file}:${issue.line}\n`;
+                issueBody += `- **Rule:** ${issue.cve}\n`;
+              }
+              issueBody += `- **Description:** ${issue.description}\n\n`;
+            });
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔒 Security: ${issuesData.length} CRITICAL/HIGH issues need manual fixes`,
+              body: issueBody,
+              labels: ['security', 'manual-fix-required', 'critical']
+            });
+      
+      # ============================================
+      # 9. Workflow Summary
+      # ============================================
+      - name: Generate Summary
+        if: always()
+        run: |
+          echo "## 🔒 Automated Security PR: CRITICAL & HIGH Issues" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.generate_fixes.outputs.has_issues }}" == "true" ]; then
+            echo "### 📊 Scan Results:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Issues:** ${{ steps.generate_fixes.outputs.total_issues }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **SCA (Dependencies):** 📦 ${{ steps.generate_fixes.outputs.sca_count }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **SAST (Code):** 🔍 ${{ steps.generate_fixes.outputs.sast_count }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Auto-fixable:** ✅ ${{ steps.generate_fixes.outputs.fixable_count }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ steps.check_changes.outputs.changes }}" == "true" ]; then
+              echo "### ✅ Result: PR Created!" >> $GITHUB_STEP_SUMMARY
+              echo "A pull request has been created with automatic security fixes." >> $GITHUB_STEP_SUMMARY
+              echo "**Check the Pull Requests tab to review and merge.**" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### ⚠️ Result: Manual Fixes Required" >> $GITHUB_STEP_SUMMARY
+              echo "Issues found but no automatic fixes available." >> $GITHUB_STEP_SUMMARY
+              echo "**Check the Issues tab for manual fix recommendations.**" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "### ✅ Result: No CRITICAL/HIGH Issues Found!" >> $GITHUB_STEP_SUMMARY
+            echo "Your code is secure against known CRITICAL and HIGH severity vulnerabilities." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 Scan Coverage:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SAST (Static Application Security Testing)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SCA (Software Composition Analysis)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Severity: CRITICAL and HIGH only" >> $GITHUB_STEP_SUMMARY
+

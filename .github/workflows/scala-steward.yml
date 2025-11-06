@@ -31,13 +31,7 @@ jobs:
           author-name: "Scala Steward Bot"
           branches: "main"
           repos-file: ""
-          # Update all dependencies including security patches
-          updates: |
-            - groupId: "*"
-              artifactId: "*"
-          # Sign commits (optional)
           sign-commits: false
-          # Cache directory
           cache-ttl: "24hours"
       
       - name: Summary

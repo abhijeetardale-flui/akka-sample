@@ -29,7 +29,7 @@
     <akka.version>2.6.20</akka.version>
     <akka-persistence-cassandra.version>1.0.6</akka-persistence-cassandra.version>
     <akka-http.version>10.2.10</akka-http.version>
-    <akka-management.version>1.1.4</akka-management.version>
+    <akka-management.version>1.4.1</akka-management.version>
   </properties>
 
    <dependencies>

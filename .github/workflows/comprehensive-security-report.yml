@@ -533,41 +533,45 @@ jobs:
             exit 0
           fi
 
-          {
-            echo "## 🔒 Comprehensive Security Scan Complete"
-            echo ""
-            echo "### 📊 Scan Coverage:"
-            echo "- ✅ **SAST** (Static Application Security Testing) - Semgrep"
-            echo "- ✅ **SCA** (Software Composition Analysis) - Trivy, OWASP"
-            echo "- ✅ **Code Quality** - SpotBugs"
-            echo "- ✅ **Secret Detection** - Trivy"
-            echo "- ✅ **Config Scanning** - Trivy"
-            echo "- ✅ **Code Scanning Uploads** - Trivy (SARIF), Semgrep (SARIF)"
-            echo ""
+          cat <<'HEADER' >> "$summary_file"
+## 🔒 Comprehensive Security Scan Complete
 
-            if [ -f security-reports/comprehensive-report.json ]; then
-              echo "### 🎯 Results:"
-              python3 <<'PY_RESULTS'
+### 📊 Scan Coverage:
+- ✅ **SAST** (Static Application Security Testing) - Semgrep
+- ✅ **SCA** (Software Composition Analysis) - Trivy, OWASP
+- ✅ **Code Quality** - SpotBugs
+- ✅ **Secret Detection** - Trivy
+- ✅ **Config Scanning** - Trivy
+- ✅ **Code Scanning Uploads** - Trivy (SARIF), Semgrep (SARIF)
+
+HEADER
+
+          if [ -f security-reports/comprehensive-report.json ]; then
+            echo "### 🎯 Results:" >> "$summary_file"
+            python3 <<'PY_RESULTS' >> "$summary_file"
 import json
+
 with open('security-reports/comprehensive-report.json') as f:
     data = json.load(f)
-print(f"- **Total Vulnerabilities:** {data['total_vulnerabilities']}")
-for severity, count in data['severity_breakdown'].items():
+
+print(f"- **Total Vulnerabilities:** {data.get('total_vulnerabilities', 0)}")
+for severity, count in data.get('severity_breakdown', {}).items():
     emoji = {'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(severity, '⚪')
     print(f"- **{severity}:** {emoji} {count}")
 PY_RESULTS
-            fi
+            echo "" >> "$summary_file"
+          else
+            echo "- No comprehensive report summary available" >> "$summary_file"
+            echo "" >> "$summary_file"
+          fi
 
-            echo ""
-            echo "### 🔗 Security Fix Pull Requests:"
-          } >> "$summary_file"
-
-          python3 <<'PY_LINKS'
+          python3 <<'PY_LINKS' >> "$summary_file"
 import json
 import os
 
-summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
 links_raw = os.environ.get("PR_LINKS") or "{}"
+repo = os.environ.get("GITHUB_REPOSITORY", "")
+base_url = f"https://github.com/{repo}" if repo else ""
 
 try:
     links = json.loads(links_raw)
@@ -580,55 +584,39 @@ severity_labels = [
     ("medium", "🟡 Medium"),
 ]
 
-with open(summary_file, "a", encoding="utf-8") as fh:
-    for key, label in severity_labels:
-        entries = links.get(key, [])
-        if entries:
-            fh.write(f"- {label}:\n")
-            for entry in entries:
-                title = entry.get("title", "").strip() or f"PR #{entry.get('number')}"
-                fh.write(f"  - [#{entry.get('number')} – {title}]({entry.get('url')})\n")
+print("### 🔗 Security Fix Pull Requests:")
+for key, label in severity_labels:
+    entries = links.get(key, [])
+    search_url = f"{base_url}/pulls?q=is:open+label:{key}+label:security" if base_url else ""
+    if entries:
+        print(f"- {label}:")
+        for entry in entries:
+            title = (entry.get("title") or f"PR #{entry.get('number')}").strip()
+            print(f"  - [#{entry.get('number')} – {title}]({entry.get('url')})")
+        if search_url:
+            print(f"  - [View all {label} PRs]({search_url})")
+    else:
+        if search_url:
+            print(f"- {label}: _No open security PRs with '{key}' label found_. [Search]({search_url})")
         else:
-            fh.write(f"- {label}: _No open security PRs with '{key}' label found_\n")
+            print(f"- {label}: _No open security PRs with '{key}' label found_")
+print()
+PY_LINKS
 
-    fh.write("\n")
+          cat <<EOF >> "$summary_file"
+### 📥 Download Reports:
+1. Go to **Actions** tab → This workflow run
+2. Scroll to **Artifacts** section
+3. Download **security-reports.zip**
 
-repo = os.environ.get("GITHUB_REPOSITORY", "")
-base_url = f"https://github.com/{repo}" if repo else ""
+### 📄 Available Reports:
+- 📊 **comprehensive-report.html** - Main Veracode-style report ⭐
+- 📊 **owasp/dependency-check-report.html** - OWASP full report
+- 📄 **comprehensive-report.json** - Machine-readable summary
+- 📄 **raw/trivy-table.txt** - Trivy scan results
+- 📄 **SARIF files** - GitHub Security tab integration
 
-with open(summary_file, "a", encoding="utf-8") as fh:
-    for key, label in severity_labels:
-        entries = links.get(key, [])
-        search_url = f"{base_url}/pulls?q=is:open+label:{key}+label:security" if base_url else ""
-        if entries:
-            fh.write(f"- {label}:\n")
-            for entry in entries:
-                title = entry.get("title", "").strip() or f"PR #{entry.get('number')}"
-                fh.write(f"  - [#{entry.get('number')} – {title}]({entry.get('url')})\n")
-            if search_url:
-                fh.write(f"  - [View all {label} PRs]({search_url})\n")
-        else:
-            if search_url:
-                fh.write(f"- {label}: _No open security PRs with '{key}' label found_. [Search]({search_url})\n")
-            else:
-                fh.write(f"- {label}: _No open security PRs with '{key}' label found_\n")
-
-    fh.write("\n")
-
-          {
-            echo "### 📥 Download Reports:"
-            echo "1. Go to **Actions** tab → This workflow run"
-            echo "2. Scroll to **Artifacts** section"
-            echo "3. Download **security-reports.zip**"
-            echo ""
-            echo "### 📄 Available Reports:"
-            echo "- 📊 **comprehensive-report.html** - Main Veracode-style report ⭐"
-            echo "- 📊 **owasp/dependency-check-report.html** - OWASP full report"
-            echo "- 📄 **comprehensive-report.json** - Machine-readable summary"
-            echo "- 📄 **raw/trivy-table.txt** - Trivy scan results"
-            echo "- 📄 **SARIF files** - GitHub Security tab integration"
-            echo ""
-            echo "---"
-            echo "*Scan completed at $(date -u)*"
-          } >> "$summary_file"
+---
+*Scan completed at $(date -u)*
+EOF
 

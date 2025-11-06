@@ -1,0 +1,208 @@
+name: Manual Security Fix Helper
+
+# This workflow helps create PRs for security vulnerabilities
+# when Dependabot can't auto-fix (SBT projects)
+
+on:
+  workflow_dispatch:
+    inputs:
+      vulnerability:
+        description: 'Vulnerability to fix (e.g., CVE-2021-42550)'
+        required: true
+        type: string
+      package:
+        description: 'Package name (e.g., ch.qos.logback:logback-classic)'
+        required: true
+        type: string
+      current-version:
+        description: 'Current vulnerable version (e.g., 1.2.3)'
+        required: true
+        type: string
+      fixed-version:
+        description: 'Fixed version to upgrade to (e.g., 1.2.11)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  create-security-fix-pr:
+    name: Create Security Fix PR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Create branch for security fix
+        run: |
+          BRANCH_NAME="security-fix/$(echo '${{ inputs.package }}' | sed 's/:/-/g' | sed 's/\./-/g')-${{ inputs.fixed-version }}"
+          git checkout -b "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+      
+      - name: Find and update vulnerable dependency
+        id: update
+        run: |
+          PACKAGE_GROUP=$(echo "${{ inputs.package }}" | cut -d: -f1)
+          PACKAGE_ARTIFACT=$(echo "${{ inputs.package }}" | cut -d: -f2)
+          CURRENT_VERSION="${{ inputs.current-version }}"
+          FIXED_VERSION="${{ inputs.fixed-version }}"
+          
+          echo "Searching for $PACKAGE_GROUP % $PACKAGE_ARTIFACT % $CURRENT_VERSION"
+          
+          updated_files=""
+          
+          # Search in all build.sbt files
+          for file in $(find . -name "build.sbt"); do
+            if grep -q "$PACKAGE_GROUP.*$PACKAGE_ARTIFACT.*$CURRENT_VERSION" "$file"; then
+              echo "Found in $file"
+              
+              # Update the version
+              sed -i "s/\(\"$PACKAGE_GROUP\".*\"$PACKAGE_ARTIFACT\".*\)\"$CURRENT_VERSION\"/\1\"$FIXED_VERSION\"/g" "$file"
+              sed -i "s/\(\"$PACKAGE_GROUP\".*%.*\"$PACKAGE_ARTIFACT\".*%.*\)\"$CURRENT_VERSION\"/\1\"$FIXED_VERSION\"/g" "$file"
+              
+              updated_files="$updated_files\n- $file"
+            fi
+          done
+          
+          # Also check project/plugins.sbt
+          for file in $(find . -name "plugins.sbt"); do
+            if grep -q "$PACKAGE_GROUP.*$PACKAGE_ARTIFACT.*$CURRENT_VERSION" "$file"; then
+              echo "Found in $file"
+              sed -i "s/\(\"$PACKAGE_GROUP\".*\"$PACKAGE_ARTIFACT\".*\)\"$CURRENT_VERSION\"/\1\"$FIXED_VERSION\"/g" "$file"
+              updated_files="$updated_files\n- $file"
+            fi
+          done
+          
+          if [ -z "$updated_files" ]; then
+            echo "⚠️ Warning: Package not found in any build files"
+            echo "This might be a transitive dependency"
+            echo "updated=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Updated files:$updated_files"
+            echo "updated=true" >> $GITHUB_OUTPUT
+            echo -e "$updated_files" > updated_files.txt
+          fi
+      
+      - name: Create fix documentation
+        run: |
+          cat > SECURITY_FIX_NOTES.md << EOF
+          # Security Fix: ${{ inputs.package }}
+          
+          ## Vulnerability Details
+          - **CVE/Issue**: ${{ inputs.vulnerability }}
+          - **Package**: ${{ inputs.package }}
+          - **Vulnerable Version**: ${{ inputs.current-version }}
+          - **Fixed Version**: ${{ inputs.fixed-version }}
+          
+          ## Changes Made
+          This PR updates the vulnerable dependency to a secure version.
+          
+          EOF
+          
+          if [ "${{ steps.update.outputs.updated }}" == "true" ]; then
+            echo "### Files Updated:" >> SECURITY_FIX_NOTES.md
+            cat updated_files.txt >> SECURITY_FIX_NOTES.md
+          else
+            echo "### Note:" >> SECURITY_FIX_NOTES.md
+            echo "This is a **transitive dependency** (dependency of a dependency)." >> SECURITY_FIX_NOTES.md
+            echo "" >> SECURITY_FIX_NOTES.md
+            echo "To fix transitive dependencies, you need to:" >> SECURITY_FIX_NOTES.md
+            echo "1. Add explicit dependency override in build.sbt" >> SECURITY_FIX_NOTES.md
+            echo "2. Or update the parent dependency that brings this in" >> SECURITY_FIX_NOTES.md
+          fi
+          
+          echo "" >> SECURITY_FIX_NOTES.md
+          echo "## Testing Required" >> SECURITY_FIX_NOTES.md
+          echo "- [ ] Local build successful" >> SECURITY_FIX_NOTES.md
+          echo "- [ ] All tests passing" >> SECURITY_FIX_NOTES.md
+          echo "- [ ] Vulnerability scan passes" >> SECURITY_FIX_NOTES.md
+          echo "" >> SECURITY_FIX_NOTES.md
+          echo "## References" >> SECURITY_FIX_NOTES.md
+          echo "- Vulnerability: \`${{ inputs.vulnerability }}\`" >> SECURITY_FIX_NOTES.md
+          echo "- Package: \`${{ inputs.package }}\`" >> SECURITY_FIX_NOTES.md
+          echo "" >> SECURITY_FIX_NOTES.md
+          echo "---" >> SECURITY_FIX_NOTES.md
+          echo "*Generated by Manual Security Fix workflow*" >> SECURITY_FIX_NOTES.md
+      
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet; then
+            echo "No changes to commit (might be transitive dependency)"
+            echo "SKIP_PR=true" >> $GITHUB_ENV
+          else
+            git add -A
+            git commit -m "security: Update ${{ inputs.package }} from ${{ inputs.current-version }} to ${{ inputs.fixed-version }}
+
+Fixes ${{ inputs.vulnerability }}
+
+This security update addresses a vulnerability in ${{ inputs.package }}.
+Updated from version ${{ inputs.current-version }} to ${{ inputs.fixed-version }}.
+
+Security issue: ${{ inputs.vulnerability }}"
+            git push origin "$BRANCH_NAME"
+          fi
+      
+      - name: Create Pull Request
+        if: env.SKIP_PR != 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.BRANCH_NAME }}
+          title: "🔒 Security: Update ${{ inputs.package }} to ${{ inputs.fixed-version }}"
+          body-path: SECURITY_FIX_NOTES.md
+          labels: |
+            security
+            dependencies
+            vulnerability-fix
+          reviewers: ${{ github.actor }}
+      
+      - name: Create Issue for Transitive Dependency
+        if: steps.update.outputs.updated == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const notes = fs.readFileSync('SECURITY_FIX_NOTES.md', 'utf8');
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔒 Manual Fix Needed: Transitive Dependency - ${{ inputs.package }}',
+              body: `${notes}\n\n## This is a Transitive Dependency\n\nThis package is not directly declared in your build files. It's brought in by another dependency.\n\n### How to Fix:\n\n**Option 1: Add Explicit Override**\n\nAdd to your \`build.sbt\`:\n\`\`\`scala\ndependencyOverrides += "${{ inputs.package }}" % "${{ inputs.fixed-version }}"\n\`\`\`\n\n**Option 2: Update Parent Dependency**\n\nFind which dependency brings in ${{ inputs.package }} and update it:\n\`\`\`bash\nsbt dependencyTree | grep "${{ inputs.package }}"\n\`\`\`\n\n**Option 3: Wait for Scala Steward**\n\nScala Steward will automatically update parent dependencies on its next run (Monday).`,
+              labels: ['security', 'dependencies', 'manual-fix-required']
+            });
+      
+      - name: Summary
+        run: |
+          echo "## 🔒 Security Fix Helper Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.update.outputs.updated }}" == "true" ]; then
+            echo "### ✅ PR Created Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Package**: ${{ inputs.package }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Updated**: ${{ inputs.current-version }} → ${{ inputs.fixed-version }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Fixes**: ${{ inputs.vulnerability }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review and merge the PR!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ Transitive Dependency Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Package**: ${{ inputs.package }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "This dependency is not directly in your build files." >> $GITHUB_STEP_SUMMARY
+            echo "An issue has been created with manual fix instructions." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the Issues tab for details." >> $GITHUB_STEP_SUMMARY
+          fi
+

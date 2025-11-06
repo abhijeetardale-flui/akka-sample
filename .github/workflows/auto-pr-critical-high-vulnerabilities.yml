@@ -302,35 +302,35 @@ jobs:
           sca_count = len(sca_issues)
           sast_count = len(sast_issues)
           
-          pr_body = f"# 🔒 Automated Security Fixes: CRITICAL & HIGH Issues\n\n"
-          pr_body += f"This PR automatically addresses **{total} CRITICAL and HIGH severity security issues** "
+          pr_body = "# 🔒 Automated Security Fixes: CRITICAL & HIGH Issues\n\n"
+          pr_body += "This PR automatically addresses **" + str(total) + " CRITICAL and HIGH severity security issues** "
           pr_body += "detected by automated security scanning.\n\n"
           pr_body += "## 📊 Issue Breakdown\n\n"
           pr_body += "| Type | Count | Description |\n"
           pr_body += "|------|-------|-------------|\n"
-          pr_body += f"| 🔴 **CRITICAL** | {crit_count} | Immediate action required |\n"
-          pr_body += f"| 🟠 **HIGH** | {high_count} | High priority fixes |\n"
-          pr_body += f"| 📦 **SCA** (Dependencies) | {sca_count} | Third-party library vulnerabilities |\n"
-          pr_body += f"| 🔍 **SAST** (Code) | {sast_count} | Code-level security issues |\n\n"
+          pr_body += "| 🔴 **CRITICAL** | " + str(crit_count) + " | Immediate action required |\n"
+          pr_body += "| 🟠 **HIGH** | " + str(high_count) + " | High priority fixes |\n"
+          pr_body += "| 📦 **SCA** (Dependencies) | " + str(sca_count) + " | Third-party library vulnerabilities |\n"
+          pr_body += "| 🔍 **SAST** (Code) | " + str(sast_count) + " | Code-level security issues |\n\n"
           pr_body += "---\n\n"
           pr_body += "## 🔴 CRITICAL Severity Issues\n\n"
           
           if critical:
               for issue in critical:
                   if issue['type'] == 'SCA':
-                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
-                      pr_body += f"- **Package:** `{issue['package']}`\n"
-                      pr_body += f"- **Current Version:** {issue['current_version']}\n"
-                      pr_body += f"- **Fixed Version:** {issue['fixed_version']}\n"
+                      pr_body += "\n### " + issue['cve'] + ": " + issue['title'][:80] + "\n"
+                      pr_body += "- **Package:** `" + issue['package'] + "`\n"
+                      pr_body += "- **Current Version:** " + str(issue['current_version']) + "\n"
+                      pr_body += "- **Fixed Version:** " + str(issue['fixed_version']) + "\n"
                       pr_body += "- **Type:** Software Composition Analysis (SCA)\n"
-                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **Description:** " + str(issue['description']) + "\n"
                       pr_body += "- **✅ Auto-fixed:** Updated to secure version\n\n"
                   else:  # SAST
-                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
-                      pr_body += f"- **File:** `{issue['file']}`\n"
-                      pr_body += f"- **Line:** {issue['line']}\n"
+                      pr_body += "\n### " + issue['cve'] + ": " + issue['title'][:80] + "\n"
+                      pr_body += "- **File:** `" + issue['file'] + "`\n"
+                      pr_body += "- **Line:** " + str(issue['line']) + "\n"
                       pr_body += "- **Type:** Static Application Security Testing (SAST)\n"
-                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **Description:** " + str(issue['description']) + "\n"
                       pr_body += "- **⚠️ Manual review required** - Please review and apply suggested fix\n\n"
           else:
               pr_body += "_No CRITICAL issues found._\n\n"
@@ -341,19 +341,19 @@ jobs:
           if high:
               for issue in high:
                   if issue['type'] == 'SCA':
-                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
-                      pr_body += f"- **Package:** `{issue['package']}`\n"
-                      pr_body += f"- **Current Version:** {issue['current_version']}\n"
-                      pr_body += f"- **Fixed Version:** {issue['fixed_version']}\n"
+                      pr_body += "\n### " + issue['cve'] + ": " + issue['title'][:80] + "\n"
+                      pr_body += "- **Package:** `" + issue['package'] + "`\n"
+                      pr_body += "- **Current Version:** " + str(issue['current_version']) + "\n"
+                      pr_body += "- **Fixed Version:** " + str(issue['fixed_version']) + "\n"
                       pr_body += "- **Type:** Software Composition Analysis (SCA)\n"
-                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **Description:** " + str(issue['description']) + "\n"
                       pr_body += "- **✅ Auto-fixed:** Updated to secure version\n\n"
                   else:  # SAST
-                      pr_body += f"\n### {issue['cve']}: {issue['title'][:80]}\n"
-                      pr_body += f"- **File:** `{issue['file']}`\n"
-                      pr_body += f"- **Line:** {issue['line']}\n"
+                      pr_body += "\n### " + issue['cve'] + ": " + issue['title'][:80] + "\n"
+                      pr_body += "- **File:** `" + issue['file'] + "`\n"
+                      pr_body += "- **Line:** " + str(issue['line']) + "\n"
                       pr_body += "- **Type:** Static Application Security Testing (SAST)\n"
-                      pr_body += f"- **Description:** {issue['description']}\n"
+                      pr_body += "- **Description:** " + str(issue['description']) + "\n"
                       pr_body += "- **⚠️ Manual review required** - Please review and apply suggested fix\n\n"
           else:
               pr_body += "_No HIGH severity issues found._\n\n"
@@ -361,20 +361,20 @@ jobs:
           pr_body += "---\n\n"
           pr_body += "## ✅ What Was Fixed Automatically\n\n"
           pr_body += "This PR includes **automatic fixes** for:\n"
-          pr_body += f"- ✅ **{sca_count} SCA (dependency) vulnerabilities** - Updated to secure versions\n"
-          pr_body += f"- ⚠️ **{sast_count} SAST (code) issues** - Identified for manual review\n\n"
+          pr_body += "- ✅ **" + str(sca_count) + " SCA (dependency) vulnerabilities** - Updated to secure versions\n"
+          pr_body += "- ⚠️ **" + str(sast_count) + " SAST (code) issues** - Identified for manual review\n\n"
           pr_body += "### Automatic Dependency Updates Applied:\n"
           
           for issue in sca_issues:
               if issue.get('fixed_version') and issue['fixed_version'] != 'Not available':
-                  pr_body += f"- `{issue['package']}`: {issue['current_version']} → {issue['fixed_version']} ({issue['cve']})\n"
+                  pr_body += "- `" + issue['package'] + "`: " + str(issue['current_version']) + " → " + str(issue['fixed_version']) + " (" + issue['cve'] + ")\n"
           
           pr_body += "\n### Manual Code Review Required:\n"
           
           if sast_issues:
               pr_body += "The following SAST issues require manual code changes:\n\n"
               for issue in sast_issues:
-                  pr_body += f"- [ ] **{issue['file']}:{issue['line']}** - {issue['title'][:60]} ({issue['cve']})\n"
+                  pr_body += "- [ ] **" + issue['file'] + ":" + str(issue['line']) + "** - " + issue['title'][:60] + " (" + issue['cve'] + ")\n"
           else:
               pr_body += "_No manual code changes required._\n"
           

@@ -40,3 +40,27 @@ lazy val `akka-sample-persistence-scala` = project in file("akka-sample-persiste
 lazy val `akka-sample-sharding-scala` = project in file("akka-sample-sharding-scala")
 lazy val `akka-sample-sharding-java` = project in file("akka-sample-sharding-java")
 
+// =============================================================================
+// SECURITY FIX: Override vulnerable transitive dependencies
+// Fixes 7 Dependabot security alerts
+// Date: November 6, 2025
+// =============================================================================
+ThisBuild / dependencyOverrides ++= Seq(
+  // Logback - CVE-2021-42550 (HIGH severity)
+  "ch.qos.logback" % "logback-classic" % "1.2.11",
+  "ch.qos.logback" % "logback-core" % "1.2.11",
+  
+  // Jackson - Multiple CVEs (HIGH severity)
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.5",
+  "com.fasterxml.jackson.core" % "jackson-core" % "2.13.5",
+  "com.fasterxml.jackson.core" % "jackson-annotations" % "2.13.5",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.13.5",
+  
+  // Akka - Ensure secure versions
+  "com.typesafe.akka" %% "akka-actor" % "2.6.20",
+  "com.typesafe.akka" %% "akka-stream" % "2.6.20",
+  "com.typesafe.akka" %% "akka-cluster" % "2.6.20",
+  "com.typesafe.akka" %% "akka-actor-typed" % "2.6.20",
+  "com.typesafe.akka" %% "akka-persistence" % "2.6.20"
+)
+

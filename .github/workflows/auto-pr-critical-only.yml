@@ -417,6 +417,7 @@ jobs:
       # 6. Create Pull Request
       # ============================================
       - name: Create Pull Request
+        id: create_pr
         if: steps.generate_fixes.outputs.has_critical == 'true' && steps.check_changes.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -438,6 +439,19 @@ jobs:
             priority-1
           assignees: abhijeetardale-flui
           reviewers: abhijeetardale-flui
+      
+      - name: Display PR Information
+        if: steps.create_pr.outputs.pull-request-number
+        run: |
+          echo "🎉 URGENT Pull Request Created Successfully!"
+          echo ""
+          echo "PR Number: ${{ steps.create_pr.outputs.pull-request-number }}"
+          echo "PR URL: ${{ steps.create_pr.outputs.pull-request-url }}"
+          echo "PR Operation: ${{ steps.create_pr.outputs.pull-request-operation }}"
+          echo ""
+          echo "⚠️ CRITICAL VULNERABILITIES - URGENT ACTION REQUIRED!"
+          echo "✅ Go review your PR IMMEDIATELY at:"
+          echo "${{ steps.create_pr.outputs.pull-request-url }}"
       
       # ============================================
       # 7. Create URGENT Issue
@@ -510,6 +524,12 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "🚨 **A CRITICAL security PR has been created.**" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
+              if [ -n "${{ steps.create_pr.outputs.pull-request-url }}" ]; then
+                echo "**🎉 Pull Request:** [#${{ steps.create_pr.outputs.pull-request-number }}](${{ steps.create_pr.outputs.pull-request-url }})" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "**⚠️ URGENT - Direct Link:** ${{ steps.create_pr.outputs.pull-request-url }}" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
               echo "**ACTION REQUIRED:**" >> $GITHUB_STEP_SUMMARY
               echo "1. Check the Pull Requests tab IMMEDIATELY" >> $GITHUB_STEP_SUMMARY
               echo "2. Review changes" >> $GITHUB_STEP_SUMMARY

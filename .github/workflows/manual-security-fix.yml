@@ -140,14 +140,15 @@ jobs:
             echo "SKIP_PR=true" >> $GITHUB_ENV
           else
             git add -A
-            git commit -m "security: Update ${{ inputs.package }} from ${{ inputs.current-version }} to ${{ inputs.fixed-version }}" \
-              -m "" \
-              -m "Fixes ${{ inputs.vulnerability }}" \
-              -m "" \
-              -m "This security update addresses a vulnerability in ${{ inputs.package }}." \
-              -m "Updated from version ${{ inputs.current-version }} to ${{ inputs.fixed-version }}." \
-              -m "" \
-              -m "Security issue: ${{ inputs.vulnerability }}"
+            COMMIT_MSG="security: Update ${{ inputs.package }} from ${{ inputs.current-version }} to ${{ inputs.fixed-version }}
+
+Fixes ${{ inputs.vulnerability }}
+
+This security update addresses a vulnerability in ${{ inputs.package }}.
+Updated from version ${{ inputs.current-version }} to ${{ inputs.fixed-version }}.
+
+Security issue: ${{ inputs.vulnerability }}"
+            git commit -m "$COMMIT_MSG"
             git push origin "$BRANCH_NAME"
           fi
       

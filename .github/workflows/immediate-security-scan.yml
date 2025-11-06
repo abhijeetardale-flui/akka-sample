@@ -105,6 +105,7 @@ jobs:
       - name: Run Snyk security scan
         uses: snyk/actions/maven@master
         continue-on-error: true
+        if: env.SNYK_TOKEN != ''
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:

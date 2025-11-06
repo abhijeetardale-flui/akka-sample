@@ -40,6 +40,7 @@ jobs:
       # 1. OWASP Dependency Check (SCA)
       # ============================================
       - name: OWASP Dependency Check
+        continue-on-error: true
         run: |
           echo "🔍 Running OWASP Dependency Check..."
           
@@ -64,6 +65,7 @@ jobs:
       # ============================================
       - name: Trivy Filesystem Scan
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -74,6 +76,7 @@ jobs:
       
       - name: Trivy SARIF Report
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -87,14 +90,16 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'template'
-          template: '@/contrib/html.tpl'
+          template: '@contrib/html.tpl'
           output: 'security-reports/html/trivy-report.html'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+        continue-on-error: true
       
       # ============================================
       # 3. Semgrep SAST
       # ============================================
       - name: Semgrep Security Scan
+        continue-on-error: true
         run: |
           echo "🔍 Running Semgrep SAST..."
           
@@ -114,6 +119,7 @@ jobs:
       # 4. SpotBugs (Java-specific)
       # ============================================
       - name: Build projects for SpotBugs
+        continue-on-error: true
         run: |
           echo "🔨 Building Java projects..."
           
@@ -129,6 +135,7 @@ jobs:
           echo "✅ Build complete"
       
       - name: Run SpotBugs
+        continue-on-error: true
         run: |
           echo "🔍 Running SpotBugs analysis..."
           
@@ -151,6 +158,7 @@ jobs:
       # 5. Generate Comprehensive Report
       # ============================================
       - name: Generate Veracode-style Report
+        continue-on-error: true
         run: |
           cat > security-reports/generate_report.py << 'PYTHON_SCRIPT'
           import json

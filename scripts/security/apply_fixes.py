@@ -72,28 +72,36 @@ def update_sbt_files(fixes, sbt_files):
                 continue
 
             original = content
-            pattern = re.compile(
-                rf'("{re.escape(group)}"\s*%+\s*"{re.escape(artifact)}"\s*%\s*")({re.escape(from_ver)})(")'
-            )
-            try:
-                content = pattern.sub(
-                    lambda match: f"{match.group(1)}{to_ver}{match.group(3)}",
-                    content,
-                )
-            except re.error as exc:
-                print(
-                    f"   ⚠️ Regex replacement failed for {pkg} in {path}: {exc}. Falling back to simple string replacement."
-                )
-                content = content.replace(
-                    f'"{group}" %% "{artifact}" % "{from_ver}"',
-                    f'"{group}" %% "{artifact}" % "{to_ver}"',
-                )
+            lines = content.splitlines()
+            updated_lines = []
+            local_change = False
 
-            if pkg in content:
-                content = content.replace(f'"{from_ver}"', f'"{to_ver}"')
+            for line in lines:
+                updated_line = line
+                if (
+                    f'"{group}"' in line
+                    and f'"{artifact}"' in line
+                    and f'"{from_ver}"' in line
+                ):
+                    updated_line = line.replace(f'"{from_ver}"', f'"{to_ver}"')
+                    if updated_line != line:
+                        local_change = True
+                updated_lines.append(updated_line)
 
-            if content != original:
-                path.write_text(content, encoding="utf-8")
+            if not local_change and pkg in content and f'"{from_ver}"' in content:
+                temp_lines = []
+                for line in updated_lines:
+                    updated_line = line
+                    if pkg in line and f'"{from_ver}"' in line:
+                        updated_line = line.replace(f'"{from_ver}"', f'"{to_ver}"')
+                    if updated_line != line:
+                        local_change = True
+                    temp_lines.append(updated_line)
+                updated_lines = temp_lines
+
+            if local_change:
+                new_content = "\n".join(updated_lines)
+                path.write_text(new_content, encoding="utf-8")
                 print(f"   ✅ Updated {path}")
                 changes += 1
     return changes

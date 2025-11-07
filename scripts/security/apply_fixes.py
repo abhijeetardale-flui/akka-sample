@@ -75,10 +75,19 @@ def update_sbt_files(fixes, sbt_files):
             pattern = re.compile(
                 rf'("{re.escape(group)}"\s*%+\s*"{re.escape(artifact)}"\s*%\s*")({re.escape(from_ver)})(")'
             )
-            content = pattern.sub(
-                lambda match: f"{match.group(1)}{to_ver}{match.group(3)}",
-                content,
-            )
+            try:
+                content = pattern.sub(
+                    lambda match: f"{match.group(1)}{to_ver}{match.group(3)}",
+                    content,
+                )
+            except re.error as exc:
+                print(
+                    f"   ⚠️ Regex replacement failed for {pkg} in {path}: {exc}. Falling back to simple string replacement."
+                )
+                content = content.replace(
+                    f'"{group}" %% "{artifact}" % "{from_ver}"',
+                    f'"{group}" %% "{artifact}" % "{to_ver}"',
+                )
 
             if pkg in content:
                 content = content.replace(f'"{from_ver}"', f'"{to_ver}"')

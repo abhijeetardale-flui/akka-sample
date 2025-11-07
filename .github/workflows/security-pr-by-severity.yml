@@ -81,6 +81,7 @@ jobs:
           cat > pr-fixes/parse_by_severity.py <<'PYTHON'
 import json
 import os
+import re
 from datetime import datetime
 
 target_severity = os.environ.get('TARGET_SEVERITY', 'CRITICAL')
@@ -98,11 +99,65 @@ def load_json(path):
         print(f"⚠️ Could not decode {path}: {exc}")
     return {}
 
+def version_key(version):
+    numbers = [int(part) for part in re.findall(r'\d+', version)]
+    return tuple(numbers) if numbers else (0,)
+
+def extract_prefix(version):
+    if not version:
+        return None
+    match = re.match(r'^(\d+)(?:\.(\d+))?', version)
+    if not match:
+        return None
+    major = match.group(1)
+    minor = match.group(2)
+    return f"{major}.{minor}" if minor is not None else major
+
+def normalize_candidates(raw):
+    normalized = raw.replace(';', ',').replace('/', ',')
+    candidates = [cand.strip() for cand in normalized.split(',') if cand.strip()]
+    # Preserve order while removing duplicates
+    seen = set()
+    unique = []
+    for cand in candidates:
+        if cand not in seen:
+            seen.add(cand)
+            unique.append(cand)
+    return unique
+
+def choose_fixed_version(current_version, fixed_raw):
+    if not fixed_raw:
+        return None, []
+    candidates = normalize_candidates(fixed_raw)
+    if not candidates:
+        return None, []
+
+    prefix = extract_prefix(current_version)
+
+    def matches_prefix(candidate):
+        if not prefix:
+            return False
+        return candidate.startswith(f"{prefix}.") or candidate == prefix or candidate.startswith(f"{prefix}-")
+
+    same_prefix = [cand for cand in candidates if matches_prefix(cand)]
+    selectable = same_prefix if same_prefix else candidates
+    chosen = max(selectable, key=version_key)
+    return chosen, candidates
+
+def better_version(current_version, existing_version, new_version):
+    prefix = extract_prefix(current_version)
+
+    def preference(value):
+        matches = 1 if prefix and (value.startswith(f"{prefix}.") or value == prefix or value.startswith(f"{prefix}-")) else 0
+        return (matches, version_key(value))
+
+    return max([existing_version, new_version], key=preference)
+
 trivy_data = load_json(trivy_path)
 semgrep_data = load_json(semgrep_path)
 
 issues = []
-fixes = []
+fix_map = {}
 sca_count = 0
 sast_count = 0
 
@@ -114,14 +169,21 @@ if isinstance(trivy_data, dict) and 'Results' in trivy_data:
             if severity != target_severity:
                 continue
             sca_count += 1
+
+            package = vuln.get('PkgName', 'Unknown')
+            current_version = vuln.get('InstalledVersion', 'Unknown')
+            fixed_raw = (vuln.get('FixedVersion') or '').strip()
+            chosen_version, candidates = choose_fixed_version(current_version, fixed_raw)
+
             entry = {
                 'source': 'Trivy',
                 'type': 'SCA',
                 'severity': severity,
                 'cve': vuln.get('VulnerabilityID', 'N/A'),
-                'package': vuln.get('PkgName', 'Unknown'),
-                'current_version': vuln.get('InstalledVersion', 'Unknown'),
-                'fixed_version': vuln.get('FixedVersion', ''),
+                'package': package,
+                'current_version': current_version,
+                'fixed_version': chosen_version or '',
+                'candidate_versions': candidates,
                 'title': vuln.get('Title', 'No title'),
                 'description': (vuln.get('Description') or 'No description')[:400],
                 'cvss': vuln.get('CVSS', {}).get('nvd', {}).get('V3Score'),
@@ -129,15 +191,25 @@ if isinstance(trivy_data, dict) and 'Results' in trivy_data:
             }
             issues.append(entry)
 
-            fixed_version = vuln.get('FixedVersion') or ''
-            if fixed_version and fixed_version.lower() not in ('not available', 'none'):
-                fixes.append({
-                    'package': entry['package'],
-                    'from_version': entry['current_version'],
-                    'to_version': fixed_version,
-                    'cve': entry['cve'],
+            if not chosen_version or chosen_version == current_version:
+                continue
+
+            fix_entry = fix_map.get(package)
+            if fix_entry:
+                best_version = better_version(current_version, fix_entry['to_version'], chosen_version)
+                if best_version != fix_entry['to_version']:
+                    fix_entry['to_version'] = best_version
+                fix_entry['cves'].add(entry['cve'])
+                fix_entry['candidates'].update(candidates)
+            else:
+                fix_map[package] = {
+                    'package': package,
+                    'from_version': current_version,
+                    'to_version': chosen_version,
                     'severity': severity,
-                })
+                    'cves': {entry['cve']},
+                    'candidates': set(candidates),
+                }
 
 # --- Process Semgrep SAST results ---
 severity_map = {
@@ -168,6 +240,17 @@ if isinstance(semgrep_data, dict) and 'results' in semgrep_data:
 
 issues.sort(key=lambda item: item.get('cve', ''))
 
+fixes = []
+for data in fix_map.values():
+    fixes.append({
+        'package': data['package'],
+        'from_version': data['from_version'],
+        'to_version': data['to_version'],
+        'cve': ', '.join(sorted(data['cves'])),
+        'severity': data['severity'],
+        'candidate_versions': sorted(data['candidates']) if data['candidates'] else [],
+    })
+
 os.makedirs('pr-fixes', exist_ok=True)
 with open('pr-fixes/issues.json', 'w') as handle:
     json.dump(issues, handle, indent=2)
@@ -193,6 +276,9 @@ if issues:
         if item.get('type') == 'SCA':
             summary_lines.append(f"   - Package: `{item.get('package')}`")
             summary_lines.append(f"   - Version: `{item.get('current_version')}` → `{item.get('fixed_version') or 'Manual review'}`")
+            candidates = item.get('candidate_versions') or []
+            if candidates:
+                summary_lines.append(f"   - Recommended versions: {', '.join(candidates)}")
         else:
             summary_lines.append(f"   - Location: `{item.get('file')}:{item.get('line')}`")
         summary_lines.append(f"   - Source: {item.get('source')} ({item.get('type')})")
@@ -349,6 +435,9 @@ if sca_issues:
         body.append(f"- Package: `{item['package']}`")
         body.append(f"- Current version: `{item['current_version']}`")
         body.append(f"- Fixed version: `{item['fixed_version'] or 'Manual review required'}`")
+        candidates = item.get('candidate_versions') or []
+        if candidates:
+            body.append(f"- Recommended secure versions: {', '.join(candidates)}")
         body.append(f"- Description: {item['description']}")
         body.append("")
 

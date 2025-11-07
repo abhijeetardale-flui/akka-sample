@@ -72,9 +72,11 @@ def update_sbt_files(fixes, sbt_files):
                 continue
 
             original = content
-            content = re.sub(
-                rf'("{re.escape(group)}"\s*%+\s*"{re.escape(artifact)}"\s*%\s*")({re.escape(from_ver)})(")',
-                rf"\1{to_ver}\3",
+            pattern = re.compile(
+                rf'("{re.escape(group)}"\s*%+\s*"{re.escape(artifact)}"\s*%\s*")({re.escape(from_ver)})(")'
+            )
+            content = pattern.sub(
+                lambda match: f"{match.group(1)}{to_ver}{match.group(3)}",
                 content,
             )
 

@@ -1,0 +1,10 @@
+com.lightbend.akka.samples:akka-sample-fsm-java:jar:1.0
++- com.typesafe.akka:akka-actor-typed_2.13:jar:2.6.20:compile
+|  +- org.scala-lang:scala-library:jar:2.13.8:compile
+|  +- com.typesafe.akka:akka-actor_2.13:jar:2.6.20:compile
+|  |  +- com.typesafe:config:jar:1.4.2:compile
+|  |  \- org.scala-lang.modules:scala-java8-compat_2.13:jar:1.0.0:compile
+|  +- com.typesafe.akka:akka-slf4j_2.13:jar:2.6.20:compile
+|  \- org.slf4j:slf4j-api:jar:1.7.36:compile
+\- ch.qos.logback:logback-classic:jar:1.2.11:compile
+   \- ch.qos.logback:logback-core:jar:1.2.11:compile
